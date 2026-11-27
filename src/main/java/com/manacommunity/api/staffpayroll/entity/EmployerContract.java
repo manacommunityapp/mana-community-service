@@ -11,6 +11,10 @@ import java.time.LocalDate;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class EmployerContract extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     public enum SalaryCycleType { FIRST_TO_FIRST, TENTH_TO_TENTH, FIFTEENTH_TO_FIFTEENTH, CUSTOM }
     public enum HalfDayRule { HALF_SALARY, NO_DEDUCTION, FULL_DEDUCTION }
     public enum ContractStatus { ACTIVE, PAUSED, TERMINATED }
@@ -20,7 +24,7 @@ public class EmployerContract extends BaseAuditEntity {
     @Column(nullable = false) private String staffName;
 
     @Column(nullable = false) private String employerFlatNumber;
-    @Column(nullable = false) private String employerTowerName;
+    private String employerTowerName;
     @Column(nullable = false) private String employerName;
 
     @Enumerated(EnumType.STRING) @Column(nullable = false) private SalaryCycleType salaryCycle;
@@ -36,6 +40,8 @@ public class EmployerContract extends BaseAuditEntity {
     @Enumerated(EnumType.STRING) @Column(nullable = false) private ContractStatus status;
 
     private LocalDate contractStartDate;
+    private LocalDate startDate;
     private LocalDate contractEndDate;
+    private LocalDate endDate;
     private String terminationReason;
 }

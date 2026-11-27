@@ -93,7 +93,7 @@ public class StaffPayrollController {
     public ResponseEntity<?> seedDemoData() {
         // Staff 1: Sunita — Maid working at 3 flats with different salary cycles
         DomesticStaffProfile sunita = staffRepo.save(DomesticStaffProfile.builder()
-                .communityId("COMM-001").fullName("Sunita Devi").staffCode("STF-001")
+                .communityId(101L).fullName("Sunita Devi").staffCode("STF-001")
                 .phoneNumber("9876543210").primaryRole(StaffRole.MAID)
                 .gatePassNumber("GP-2024-0101").preferredLanguage("hi")
                 .aadhaarLastFour("4523").photoUrl("/staff/sunita.jpg")
@@ -102,7 +102,7 @@ public class StaffPayrollController {
 
         // Staff 2: Raju — Cook working at 2 flats
         DomesticStaffProfile raju = staffRepo.save(DomesticStaffProfile.builder()
-                .communityId("COMM-001").fullName("Raju Kumar").staffCode("STF-002")
+                .communityId(101L).fullName("Raju Kumar").staffCode("STF-002")
                 .phoneNumber("9876543211").primaryRole(StaffRole.COOK)
                 .gatePassNumber("GP-2024-0102").preferredLanguage("hi")
                 .aadhaarLastFour("7891").photoUrl("/staff/raju.jpg")
@@ -111,7 +111,7 @@ public class StaffPayrollController {
 
         // Staff 3: Meena — Nanny working at 3 flats
         DomesticStaffProfile meena = staffRepo.save(DomesticStaffProfile.builder()
-                .communityId("COMM-001").fullName("Meena Kumari").staffCode("STF-003")
+                .communityId(101L).fullName("Meena Kumari").staffCode("STF-003")
                 .phoneNumber("9876543212").primaryRole(StaffRole.NANNY)
                 .gatePassNumber("GP-2024-0103").preferredLanguage("en")
                 .aadhaarLastFour("3456").photoUrl("/staff/meena.jpg")
@@ -120,7 +120,7 @@ public class StaffPayrollController {
 
         // Contracts — Sunita at 3 flats with different cycles
         EmployerContract c1 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(sunita.getId())
+                .communityId(101L).staffId(sunita.getId())
                 .employerFlatNumber("A-101").employerTowerName("Tower A")
                 .employerName("Sharma Family").monthlySalary(5000).dailyRate(167)
                 .salaryCycle(SalaryCycleType.FIRST_TO_FIRST)
@@ -130,7 +130,7 @@ public class StaffPayrollController {
                 .build());
 
         EmployerContract c2 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(sunita.getId())
+                .communityId(101L).staffId(sunita.getId())
                 .employerFlatNumber("B-204").employerTowerName("Tower B")
                 .employerName("Gupta Family").monthlySalary(6000).dailyRate(200)
                 .salaryCycle(SalaryCycleType.TENTH_TO_TENTH)
@@ -140,7 +140,7 @@ public class StaffPayrollController {
                 .build());
 
         EmployerContract c3 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(sunita.getId())
+                .communityId(101L).staffId(sunita.getId())
                 .employerFlatNumber("C-302").employerTowerName("Tower C")
                 .employerName("Patel Family").monthlySalary(4500).dailyRate(150)
                 .salaryCycle(SalaryCycleType.FIFTEENTH_TO_FIFTEENTH)
@@ -151,7 +151,7 @@ public class StaffPayrollController {
 
         // Contracts — Raju at 2 flats
         EmployerContract c4 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(raju.getId())
+                .communityId(101L).staffId(raju.getId())
                 .employerFlatNumber("A-502").employerTowerName("Tower A")
                 .employerName("Mehta Family").monthlySalary(8000).dailyRate(267)
                 .salaryCycle(SalaryCycleType.FIRST_TO_FIRST)
@@ -161,7 +161,7 @@ public class StaffPayrollController {
                 .build());
 
         EmployerContract c5 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(raju.getId())
+                .communityId(101L).staffId(raju.getId())
                 .employerFlatNumber("D-101").employerTowerName("Tower D")
                 .employerName("Singh Family").monthlySalary(7500).dailyRate(250)
                 .salaryCycle(SalaryCycleType.TENTH_TO_TENTH)
@@ -172,7 +172,7 @@ public class StaffPayrollController {
 
         // Contracts — Meena at 3 flats
         EmployerContract c6 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(meena.getId())
+                .communityId(101L).staffId(meena.getId())
                 .employerFlatNumber("A-101").employerTowerName("Tower A")
                 .employerName("Sharma Family").monthlySalary(10000).dailyRate(333)
                 .salaryCycle(SalaryCycleType.FIRST_TO_FIRST)
@@ -182,7 +182,7 @@ public class StaffPayrollController {
                 .build());
 
         EmployerContract c7 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(meena.getId())
+                .communityId(101L).staffId(meena.getId())
                 .employerFlatNumber("B-204").employerTowerName("Tower B")
                 .employerName("Gupta Family").monthlySalary(9000).dailyRate(300)
                 .salaryCycle(SalaryCycleType.FIFTEENTH_TO_FIFTEENTH)
@@ -192,7 +192,7 @@ public class StaffPayrollController {
                 .build());
 
         EmployerContract c8 = contractRepo.save(EmployerContract.builder()
-                .communityId("COMM-001").staffId(meena.getId())
+                .communityId(101L).staffId(meena.getId())
                 .employerFlatNumber("E-401").employerTowerName("Tower E")
                 .employerName("Reddy Family").monthlySalary(8500).dailyRate(283)
                 .salaryCycle(SalaryCycleType.TENTH_TO_TENTH)
@@ -215,7 +215,7 @@ public class StaffPayrollController {
             else status = AttendanceStatus.PRESENT;
 
             punches.add(AttendancePunch.builder()
-                    .communityId("COMM-001").staffId(sunita.getId())
+                    .communityId(101L).staffId(sunita.getId())
                     .contractId(c1.getId()).employerFlatNumber("A-101")
                     .punchDate(date).punchTime(LocalTime.of(7, 30))
                     .punchType(PunchType.GATE_IN).attendanceStatus(status)
@@ -231,7 +231,7 @@ public class StaffPayrollController {
             AttendanceStatus status = (d == 15) ? AttendanceStatus.PAID_LEAVE : AttendanceStatus.PRESENT;
 
             punches.add(AttendancePunch.builder()
-                    .communityId("COMM-001").staffId(raju.getId())
+                    .communityId(101L).staffId(raju.getId())
                     .contractId(c4.getId()).employerFlatNumber("A-502")
                     .punchDate(date).punchTime(LocalTime.of(10, 0))
                     .punchType(PunchType.GATE_IN).attendanceStatus(status)
@@ -250,7 +250,7 @@ public class StaffPayrollController {
             else status = AttendanceStatus.PRESENT;
 
             punches.add(AttendancePunch.builder()
-                    .communityId("COMM-001").staffId(meena.getId())
+                    .communityId(101L).staffId(meena.getId())
                     .contractId(c6.getId()).employerFlatNumber("A-101")
                     .punchDate(date).punchTime(LocalTime.of(8, 0))
                     .punchType(PunchType.GATE_IN).attendanceStatus(status)
@@ -262,7 +262,7 @@ public class StaffPayrollController {
 
         // Salary Advance — Sunita: ₹10,000 across 4 EMIs from Sharma Family
         SalaryAdvance adv1 = advanceRepo.save(SalaryAdvance.builder()
-                .communityId("COMM-001").staffId(sunita.getId()).staffName("Sunita Devi")
+                .communityId(101L).staffId(sunita.getId()).staffName("Sunita Devi")
                 .contractId(c1.getId()).employerFlatNumber("A-101").employerName("Sharma Family")
                 .principalAmount(10000).totalInstallments(4).emiAmount(2500)
                 .installmentsPaid(2).amountRepaid(5000).outstandingBalance(5000)
@@ -295,7 +295,7 @@ public class StaffPayrollController {
 
         // Salary Advance — Raju: ₹15,000 across 3 EMIs, terminated early
         SalaryAdvance adv2 = advanceRepo.save(SalaryAdvance.builder()
-                .communityId("COMM-001").staffId(raju.getId()).staffName("Raju Kumar")
+                .communityId(101L).staffId(raju.getId()).staffName("Raju Kumar")
                 .contractId(c4.getId()).employerFlatNumber("A-502").employerName("Mehta Family")
                 .principalAmount(15000).totalInstallments(3).emiAmount(5000)
                 .installmentsPaid(1).amountRepaid(5000).outstandingBalance(10000)
@@ -324,35 +324,35 @@ public class StaffPayrollController {
 
         // Payroll ledgers — pre-computed for November 2026
         payrollRepo.saveAll(List.of(
-                PayrollLedger.builder().communityId("COMM-001").staffId(sunita.getId()).staffName("Sunita Devi")
+                PayrollLedger.builder().communityId(101L).staffId(sunita.getId()).staffName("Sunita Devi")
                         .contractId(c1.getId()).employerFlatNumber("A-101").employerName("Sharma Family")
                         .payrollMonth("2026-11").cycleStartDate(LocalDate.of(2026, 11, 1))
                         .cycleEndDate(LocalDate.of(2026, 11, 30)).totalDaysInCycle(30)
                         .daysPresent(20).daysAbsent(1).halfDays(2).paidLeaves(2).weeklyOffs(4).unpaidLeaves(1)
                         .grossSalary(5000).attendanceDeduction(334).advanceDeduction(2500).bonusAmount(0)
                         .netPayable(2166).status(PayrollLedger.PayrollStatus.CALCULATED).build(),
-                PayrollLedger.builder().communityId("COMM-001").staffId(sunita.getId()).staffName("Sunita Devi")
+                PayrollLedger.builder().communityId(101L).staffId(sunita.getId()).staffName("Sunita Devi")
                         .contractId(c2.getId()).employerFlatNumber("B-204").employerName("Gupta Family")
                         .payrollMonth("2026-11").cycleStartDate(LocalDate.of(2026, 10, 10))
                         .cycleEndDate(LocalDate.of(2026, 11, 9)).totalDaysInCycle(31)
                         .daysPresent(22).daysAbsent(0).halfDays(1).paidLeaves(3).weeklyOffs(4).unpaidLeaves(0)
                         .grossSalary(6000).attendanceDeduction(0).advanceDeduction(0).bonusAmount(0)
                         .netPayable(6000).status(PayrollLedger.PayrollStatus.PAID).build(),
-                PayrollLedger.builder().communityId("COMM-001").staffId(sunita.getId()).staffName("Sunita Devi")
+                PayrollLedger.builder().communityId(101L).staffId(sunita.getId()).staffName("Sunita Devi")
                         .contractId(c3.getId()).employerFlatNumber("C-302").employerName("Patel Family")
                         .payrollMonth("2026-11").cycleStartDate(LocalDate.of(2026, 10, 15))
                         .cycleEndDate(LocalDate.of(2026, 11, 14)).totalDaysInCycle(31)
                         .daysPresent(23).daysAbsent(2).halfDays(1).paidLeaves(2).weeklyOffs(0).unpaidLeaves(2)
                         .grossSalary(4500).attendanceDeduction(450).advanceDeduction(0).bonusAmount(0)
                         .netPayable(4050).status(PayrollLedger.PayrollStatus.CALCULATED).build(),
-                PayrollLedger.builder().communityId("COMM-001").staffId(raju.getId()).staffName("Raju Kumar")
+                PayrollLedger.builder().communityId(101L).staffId(raju.getId()).staffName("Raju Kumar")
                         .contractId(c4.getId()).employerFlatNumber("A-502").employerName("Mehta Family")
                         .payrollMonth("2026-11").cycleStartDate(LocalDate.of(2026, 11, 1))
                         .cycleEndDate(LocalDate.of(2026, 11, 30)).totalDaysInCycle(30)
                         .daysPresent(24).daysAbsent(0).halfDays(0).paidLeaves(1).weeklyOffs(4).unpaidLeaves(0)
                         .grossSalary(8000).attendanceDeduction(0).advanceDeduction(5000).bonusAmount(0)
                         .netPayable(3000).status(PayrollLedger.PayrollStatus.CALCULATED).build(),
-                PayrollLedger.builder().communityId("COMM-001").staffId(meena.getId()).staffName("Meena Kumari")
+                PayrollLedger.builder().communityId(101L).staffId(meena.getId()).staffName("Meena Kumari")
                         .contractId(c6.getId()).employerFlatNumber("A-101").employerName("Sharma Family")
                         .payrollMonth("2026-11").cycleStartDate(LocalDate.of(2026, 11, 1))
                         .cycleEndDate(LocalDate.of(2026, 11, 30)).totalDaysInCycle(30)

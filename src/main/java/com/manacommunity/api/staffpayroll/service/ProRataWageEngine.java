@@ -130,11 +130,9 @@ public class ProRataWageEngine {
                                                                     EmployerContract contract,
                                                                     LocalDate start, LocalDate end) {
         Map<LocalDate, AttendanceStatus> result = new LinkedHashMap<>();
-        Set<LocalDate> punchDates = punches.stream()
+        Map<LocalDate, AttendanceStatus> punchDates = punches.stream()
                 .filter(p -> p.getAttendanceStatus() != null)
-                .collect(Collectors.toMap(AttendancePunch::getPunchDate, AttendancePunch::getAttendanceStatus, (a, b) -> a))
-                .entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(Collectors.toMap(AttendancePunch::getPunchDate, AttendancePunch::getAttendanceStatus, (a, b) -> a));
 
         int paidLeavesUsed = 0;
 

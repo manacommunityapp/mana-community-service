@@ -11,6 +11,10 @@ import java.time.LocalDate;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class PayrollLedger extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     public enum PayrollStatus { DRAFT, CALCULATED, APPROVED, PAID, DISPUTED }
 
     @Column(nullable = false) private Long communityId;

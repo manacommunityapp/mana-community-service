@@ -12,6 +12,10 @@ import java.time.LocalDateTime;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class SalaryAdvance extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     public enum AdvanceStatus { ACTIVE, FULLY_REPAID, WRITTEN_OFF, TERMINATED_PENDING }
     public enum PaymentMethod { UPI, CASH, BANK_TRANSFER, IN_APP_WALLET }
 

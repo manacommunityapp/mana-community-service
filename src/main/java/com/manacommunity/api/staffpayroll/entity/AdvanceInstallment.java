@@ -12,6 +12,10 @@ import java.time.LocalDateTime;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class AdvanceInstallment extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     public enum InstallmentStatus { SCHEDULED, DEDUCTED, SKIPPED, WAIVED }
 
     @Column(nullable = false) private Long advanceId;
