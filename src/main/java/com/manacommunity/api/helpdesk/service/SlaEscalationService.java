@@ -147,7 +147,10 @@ public class SlaEscalationService {
     }
 
     private int computeElapsedMinutes(HelpdeskTicket ticket, Instant now) {
-        long totalMinutes = Duration.between(ticket.getCreatedAt().toInstant(), now).toMinutes();
+        if (ticket.getCreatedAt() == null) {
+            return 0;
+        }
+        long totalMinutes = Duration.between(ticket.getCreatedAt().atZone(IST).toInstant(), now).toMinutes();
         return (int) totalMinutes - (ticket.getSlaElapsedMinutes() > 0 ? 0 : 0);
     }
 

@@ -40,6 +40,14 @@ public class CommunityFlat extends BaseAuditEntity {
     @Column(name = "floor_number")
     private Integer floorNumber;
 
+    @Column(name = "uds_sqft", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal udsSqft = new java.math.BigDecimal("1000.00");
+
+    @Column(name = "share_units", nullable = false)
+    @Builder.Default
+    private Integer shareUnits = 1;
+
     @Column(name = "verification_status", nullable = false, length = 30)
     @Builder.Default
     private String verificationStatus = "PENDING"; // PENDING, VERIFIED, REJECTED

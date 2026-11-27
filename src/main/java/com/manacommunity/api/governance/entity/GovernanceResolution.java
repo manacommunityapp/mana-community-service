@@ -42,6 +42,14 @@ public class GovernanceResolution {
     @Column(name = "meeting_id")
     private Long meetingId;
 
+    @Column(name = "voting_status", nullable = false, length = 32)
+    @Builder.Default
+    private String votingStatus = "DRAFT"; // DRAFT, VOTING_OPEN, PASSED, REJECTED
+
+    @Column(name = "required_quorum_pct", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal requiredQuorumPct = new java.math.BigDecimal("25.00");
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

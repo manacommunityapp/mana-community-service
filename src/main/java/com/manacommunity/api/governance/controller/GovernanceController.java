@@ -25,6 +25,9 @@ public class GovernanceController {
     private final GovernanceResolutionRepository resolutionRepo;
     private final GovernanceVaultDocumentRepository vaultRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.governance.service.AgmQuorumService agmQuorumService;
+
     // ── Stats ─────────────────────────────────────────────────────────────────
 
     @GetMapping("/stats")
@@ -80,6 +83,63 @@ public class GovernanceController {
                     "mode", body.getOrDefault("mode", "PHYSICAL")
             ));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/meetings/{id}/register-proxy")
+    public ResponseEntity<AgmAttendanceLedger> registerProxy(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long ownerUserId = body.containsKey("ownerUserId")
+                ? Long.valueOf(body.get("ownerUserId").toString())
+                : principal.getUserId();
+        Long proxyHolderUserId = Long.valueOf(body.get("proxyHolderUserId").toString());
+        return ResponseEntity.ok(agmQuorumService.registerProxy(id, flatId, ownerUserId, proxyHolderUserId));
+    }
+
+    @PostMapping("/meetings/{id}/checkin")
+    public ResponseEntity<Map<String, Object>> checkInAgm(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long userId = body.containsKey("userId")
+                ? Long.valueOf(body.get("userId").toString())
+                : principal.getUserId();
+        String role = body.getOrDefault("attendeeRole", "OWNER").toString();
+        String mode = body.getOrDefault("attendanceMode", "IN_PERSON_QR").toString();
+        return ResponseEntity.ok(agmQuorumService.checkIn(id, flatId, userId, role, mode));
+    }
+
+    @PostMapping("/meetings/{id}/revoke-proxy")
+    public ResponseEntity<Map<String, Object>> revokeProxy(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long ownerUserId = body.containsKey("ownerUserId")
+                ? Long.valueOf(body.get("ownerUserId").toString())
+                : principal.getUserId();
+        return ResponseEntity.ok(agmQuorumService.revokeProxy(id, flatId, ownerUserId));
+    }
+
+    @GetMapping("/meetings/{id}/quorum")
+    public ResponseEntity<Map<String, Object>> getLiveQuorum(@PathVariable Long id) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(agmQuorumService.getLiveQuorumStatus(id));
+    }
+
+    @PostMapping("/resolutions/{id}/open-voting")
+    public ResponseEntity<GovernanceResolution> openResolutionVoting(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long meetingId = Long.valueOf(body.get("meetingId").toString());
+        return ResponseEntity.ok(agmQuorumService.openResolutionVoting(id, meetingId));
     }
 
     // ── Proposals ─────────────────────────────────────────────────────────────

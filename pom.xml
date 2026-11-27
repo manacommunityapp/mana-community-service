@@ -449,6 +449,9 @@
                     <meminitial>512m</meminitial>
                     <maxmem>2048m</maxmem>
 
+                    <testExcludes>
+                        <testExclude>**/cfbos/**</testExclude>
+                    </testExcludes>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

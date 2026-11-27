@@ -72,14 +72,32 @@ public class PollController {
                 .body(pollService.create(req, user, user.getCommunity()));
     }
 
+    @GetMapping("/{id}/eligibility")
+    @PreAuthorize("hasAuthority('View Polls')")
+    public ResponseEntity<com.manacommunity.api.governance.service.VotingEligibilityService.EligibilityResult> checkEligibility(
+            @PathVariable Long id,
+            @RequestParam Long flatId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(pollService.checkEligibility(id, flatId, user.getId()));
+    }
+
     @PostMapping("/{id}/vote")
     @PreAuthorize("hasAuthority('Vote Poll')")
     public ResponseEntity<PollResponse> vote(
             @PathVariable Long id,
-            @RequestBody Map<String, List<Long>> body,
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(pollService.vote(id, body.get("optionIds"), user));
+        @SuppressWarnings("unchecked")
+        List<Long> optionIds = ((List<?>) body.get("optionIds")).stream()
+                .map(o -> Long.valueOf(o.toString()))
+                .toList();
+        Object flatRaw = body.get("flatId");
+        if (flatRaw != null) {
+            return ResponseEntity.ok(pollService.voteForFlat(id, Long.valueOf(flatRaw.toString()), optionIds, user));
+        }
+        return ResponseEntity.ok(pollService.vote(id, optionIds, user));
     }
 
     @PutMapping("/{id}/close")

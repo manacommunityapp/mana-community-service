@@ -1,6 +1,6 @@
 package com.manacommunity.api.parking.entity;
 
-import com.manacommunity.api.model.BaseAuditEntity;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

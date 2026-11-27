@@ -3,6 +3,8 @@ package com.manacommunity.api.sync;
 public class SyncEnums {
     public enum SyncEntityType {
         VISITOR_PASS,
+        SCHOOL_BUS_ENTRY,
+        DIGITAL_PASS,
         EXPRESS_DELIVERY,
         PARKING_ENTRY,
         SOS_TRIGGER,
@@ -20,6 +22,8 @@ public class SyncEnums {
     public enum SyncStatus {
         APPLIED,
         CONFLICT_SERVER_WINS,
+        CONFLICT_ANOMALY_LOGGED,
+        REJECTED_REPLAY,
         REJECTED
     }
 

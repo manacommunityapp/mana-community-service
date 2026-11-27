@@ -50,6 +50,22 @@ public class GovernanceMeeting {
     @Builder.Default
     private int quorumConfirmed = 0;
 
+    @Column(name = "total_eligible_units", nullable = false)
+    @Builder.Default
+    private int totalEligibleUnits = 100;
+
+    @Column(name = "required_quorum_pct", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal requiredQuorumPct = new java.math.BigDecimal("25.00");
+
+    @Column(name = "quorum_met", nullable = false)
+    @Builder.Default
+    private boolean quorumMet = false;
+
+    @Column(name = "max_proxies_per_holder", nullable = false)
+    @Builder.Default
+    private int maxProxiesPerHolder = 5;
+
     @Column(name = "community_id", nullable = false)
     private Long communityId;
 

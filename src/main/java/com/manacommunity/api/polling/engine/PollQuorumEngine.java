@@ -98,4 +98,21 @@ public class PollQuorumEngine {
 
         return new ResolutionResult(status, roundedApproval, totalDecisive, optionTallies);
     }
+
+    /**
+     * Exact BigDecimal weighted tally accumulator to prevent floating-point drift on UDS square-footage polls.
+     */
+    public Map<Long, BigDecimal> calculateWeightedTallyDecimal(List<WeightedVote> votes) {
+        if (votes == null || votes.isEmpty()) return Map.of();
+        return votes.stream().collect(
+                Collectors.groupingBy(
+                        WeightedVote::optionId,
+                        Collectors.reducing(
+                                BigDecimal.ZERO,
+                                v -> BigDecimal.valueOf(v.weight()).setScale(2, RoundingMode.HALF_UP),
+                                BigDecimal::add
+                        )
+                )
+        );
+    }
 }

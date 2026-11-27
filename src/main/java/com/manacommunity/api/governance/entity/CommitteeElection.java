@@ -37,6 +37,18 @@ public class CommitteeElection {
     @Builder.Default
     private String status = "NOMINATIONS_OPEN";
 
+    @Column(name = "rsa_public_modulus", columnDefinition = "TEXT")
+    private String rsaPublicModulus;
+
+    @Column(name = "rsa_public_exponent", length = 32)
+    private String rsaPublicExponent;
+
+    @Column(name = "rsa_private_exponent", columnDefinition = "TEXT")
+    private String rsaPrivateExponent;
+
+    @Column(name = "ballot_chain_head", length = 64)
+    private String ballotChainHead;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
