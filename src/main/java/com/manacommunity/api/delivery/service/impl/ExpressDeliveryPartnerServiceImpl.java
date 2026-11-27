@@ -2,17 +2,24 @@ package com.manacommunity.api.delivery.service.impl;
 
 import com.manacommunity.api.delivery.dto.*;
 import com.manacommunity.api.delivery.model.*;
+import com.manacommunity.api.delivery.repository.ExpressDeliveryManifestRepository;
 import com.manacommunity.api.delivery.repository.ExpressDeliveryPassRepository;
 import com.manacommunity.api.delivery.repository.ResidentDeliveryPreferenceRepository;
 import com.manacommunity.api.delivery.service.ExpressDeliveryPartnerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,6 +30,13 @@ public class ExpressDeliveryPartnerServiceImpl implements ExpressDeliveryPartner
     private final ExpressDeliveryPassRepository passRepository;
     private final ResidentDeliveryPreferenceRepository preferenceRepository;
     private final SecureRandom random = new SecureRandom();
+
+    @Autowired(required = false)
+    private ExpressDeliveryManifestRepository manifestRepository;
+
+    public void setManifestRepository(ExpressDeliveryManifestRepository manifestRepository) {
+        this.manifestRepository = manifestRepository;
+    }
 
     @Override
     @Transactional
@@ -67,7 +81,7 @@ public class ExpressDeliveryPartnerServiceImpl implements ExpressDeliveryPartner
                     .itemsSummary(req.getItemsSummary())
                     .entryPassCode(passCode)
                     .barcodePayload(barcodePayload)
-                    .status(autoApproved ? ExpressPassStatus.PRE_APPROVED : ExpressPassStatus.PRE_APPROVED)
+                    .status(autoApproved ? ExpressPassStatus.PRE_APPROVED : ExpressPassStatus.AWAITING_APPROVAL)
                     .leaveAtGate(leaveAtGate)
                     .gateInstructions(gateInstructions)
                     .validFrom(now)
@@ -96,10 +110,213 @@ public class ExpressDeliveryPartnerServiceImpl implements ExpressDeliveryPartner
                 .vehicleNumber(pass.getVehicleNumber())
                 .leaveAtGate(pass.getLeaveAtGate())
                 .gateInstructions(pass.getGateInstructions())
-                .message("Express Gate Pass successfully issued and pre-approved.")
+                .message(pass.getStatus() == ExpressPassStatus.PRE_APPROVED
+                        ? "Express Gate Pass successfully issued and pre-approved."
+                        : "Express Gate Pass created and awaiting resident approval.")
                 .validFrom(pass.getValidFrom())
                 .validUntil(pass.getValidUntil())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public ExpressBatchManifestResponse registerBatchDispatch(ExpressBatchDispatchRequest req, String partnerKey) {
+        if (manifestRepository == null) {
+            throw new IllegalStateException("ExpressDeliveryManifestRepository is not configured");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int validityMins = (req.getEtaMinutes() != null && req.getEtaMinutes() > 0) ? req.getEtaMinutes() + 120 : 180;
+        String manifestCode = "EXP-B-" + (1000 + random.nextInt(9000));
+
+        Set<String> uniqueFlats = new HashSet<>();
+        for (ExpressBatchDispatchRequest.BatchPackageItem item : req.getPackages()) {
+            if (item.getFlatNumber() != null && !item.getFlatNumber().isBlank()) {
+                uniqueFlats.add(item.getFlatNumber().trim().toUpperCase());
+            }
+        }
+
+        ExpressDeliveryManifest manifest = ExpressDeliveryManifest.builder()
+                .communityId(req.getCommunityId())
+                .partner(req.getPartner())
+                .manifestCode(manifestCode)
+                .riderName(req.getRiderName())
+                .riderPhone(req.getRiderPhone())
+                .vehicleNumber(req.getVehicleNumber())
+                .status(ExpressPassStatus.PRE_APPROVED)
+                .totalPackages(req.getPackages().size())
+                .distinctFlats(uniqueFlats.size())
+                .deliveredPackages(0)
+                .pendingPackages(req.getPackages().size())
+                .validFrom(now)
+                .validUntil(now.plusMinutes(validityMins))
+                .build();
+        manifest = manifestRepository.save(manifest);
+
+        Map<String, java.util.Optional<ResidentDeliveryPreference>> prefCache = new HashMap<>();
+        List<ExpressDeliveryPass> savedPasses = new ArrayList<>();
+
+        for (ExpressBatchDispatchRequest.BatchPackageItem item : req.getPackages()) {
+            String normalizedFlat = item.getFlatNumber().trim();
+            ResidentDeliveryPreference pref = prefCache.computeIfAbsent(normalizedFlat,
+                    f -> preferenceRepository.findByCommunityIdAndFlatNumber(req.getCommunityId(), f))
+                    .orElse(null);
+            boolean autoApproved = isPartnerAutoApproved(pref, req.getPartner());
+            boolean leaveAtGate = pref != null && Boolean.TRUE.equals(pref.getDefaultLeaveAtGate());
+            String gateInstructions = (pref != null && pref.getDeliveryInstructions() != null)
+                    ? pref.getDeliveryInstructions()
+                    : "Bulk drop for " + (item.getTower() != null ? item.getTower() + ", " : "") + "Flat " + normalizedFlat;
+
+            String passCode = generatePassCode();
+            String barcodePayload = "EXP:" + req.getCommunityId() + ":" + req.getPartner().name() + ":" + item.getOrderId() + ":" + passCode;
+
+            ExpressDeliveryPass pass = ExpressDeliveryPass.builder()
+                    .manifestId(manifest.getId())
+                    .orderId(item.getOrderId())
+                    .partner(req.getPartner())
+                    .communityId(req.getCommunityId())
+                    .flatNumber(normalizedFlat)
+                    .residentName(item.getResidentName())
+                    .residentPhone(item.getResidentPhone())
+                    .riderName(req.getRiderName())
+                    .riderPhone(req.getRiderPhone())
+                    .vehicleNumber(req.getVehicleNumber())
+                    .riderPhotoUrl(req.getRiderPhotoUrl())
+                    .itemsSummary(item.getItemsSummary())
+                    .entryPassCode(passCode)
+                    .barcodePayload(barcodePayload)
+                    .status(autoApproved ? ExpressPassStatus.PRE_APPROVED : ExpressPassStatus.AWAITING_APPROVAL)
+                    .leaveAtGate(leaveAtGate)
+                    .gateInstructions(gateInstructions)
+                    .validFrom(now)
+                    .validUntil(now.plusMinutes(validityMins))
+                    .build();
+            savedPasses.add(passRepository.save(pass));
+        }
+
+        // Coalesced flat notifications: one ping per distinct flat regardless of multi-package count
+        int distinctFlatsNotified = uniqueFlats.size();
+        log.info("Registered batch manifest {} packages={} distinctFlats={} notified={}",
+                manifestCode, savedPasses.size(), uniqueFlats.size(), distinctFlatsNotified);
+
+        return toBatchResponse(manifest, savedPasses, distinctFlatsNotified, true, "OPEN_BOOM_BARRIER",
+                "Batch manifest issued with " + savedPasses.size() + " packages across " + uniqueFlats.size() + " flats.");
+    }
+
+    @Override
+    @Transactional
+    public ExpressBatchManifestResponse verifyBatchManifest(ExpressVerifyRequest req) {
+        if (manifestRepository == null) {
+            throw new IllegalStateException("ExpressDeliveryManifestRepository is not configured");
+        }
+        String code = req.getEntryCode() != null ? req.getEntryCode().trim() : "";
+        ExpressDeliveryManifest manifest = manifestRepository.findByManifestCode(code).orElse(null);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (manifest == null) {
+            return ExpressBatchManifestResponse.builder()
+                    .success(false)
+                    .allowed(false)
+                    .manifestCode(code)
+                    .barrierAction("HOLD")
+                    .message("Batch manifest not found for code: " + code)
+                    .build();
+        }
+        if (manifest.getValidUntil() != null && now.isAfter(manifest.getValidUntil())) {
+            manifest.setStatus(ExpressPassStatus.EXPIRED);
+            manifestRepository.save(manifest);
+            return ExpressBatchManifestResponse.builder()
+                    .success(false)
+                    .allowed(false)
+                    .manifestId(manifest.getId())
+                    .manifestCode(manifest.getManifestCode())
+                    .partner(manifest.getPartner())
+                    .status(ExpressPassStatus.EXPIRED)
+                    .barrierAction("HOLD")
+                    .message("Batch manifest expired at " + manifest.getValidUntil())
+                    .build();
+        }
+
+        manifest.setStatus(ExpressPassStatus.CHECKED_IN);
+        manifest.setCheckedInAt(now);
+        if (req.getGateId() != null) manifest.setEntryGate(req.getGateId());
+        manifest = manifestRepository.save(manifest);
+
+        List<ExpressDeliveryPass> childPasses = passRepository.findByManifestIdOrderByIdAsc(manifest.getId());
+        for (ExpressDeliveryPass child : childPasses) {
+            if (child.getStatus() == ExpressPassStatus.PRE_APPROVED || child.getStatus() == ExpressPassStatus.AWAITING_APPROVAL) {
+                child.setStatus(ExpressPassStatus.CHECKED_IN);
+                child.setCheckedInAt(now);
+                if (req.getGateId() != null) child.setEntryGate(req.getGateId());
+                passRepository.save(child);
+            }
+        }
+
+        return toBatchResponse(manifest, childPasses, manifest.getDistinctFlats(), true, "OPEN_BOOM_BARRIER",
+                "1-TAP BATCH CLEARANCE: Cleared " + childPasses.size() + " packages across " + manifest.getDistinctFlats() + " flats.");
+    }
+
+    @Override
+    @Transactional
+    public ExpressBatchManifestResponse reconcileBatchExit(ExpressBatchCheckoutRequest req) {
+        if (manifestRepository == null) {
+            throw new IllegalStateException("ExpressDeliveryManifestRepository is not configured");
+        }
+        String code = req.getManifestCode() != null ? req.getManifestCode().trim() : "";
+        ExpressDeliveryManifest manifest = manifestRepository.findByManifestCode(code).orElse(null);
+        if (manifest == null) {
+            return ExpressBatchManifestResponse.builder()
+                    .success(false)
+                    .allowed(false)
+                    .manifestCode(code)
+                    .barrierAction("HOLD")
+                    .message("Batch manifest not found for checkout: " + code)
+                    .build();
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<ExpressDeliveryPass> childPasses = passRepository.findByManifestIdOrderByIdAsc(manifest.getId());
+        Set<String> explicitDelivered = req.getDeliveredOrderIds() != null
+                ? new HashSet<>(req.getDeliveredOrderIds())
+                : Set.of();
+        Set<String> explicitUndelivered = req.getUndeliveredOrderIds() != null
+                ? new HashSet<>(req.getUndeliveredOrderIds())
+                : Set.of();
+
+        int deliveredCount = 0;
+        int rtoCount = 0;
+        for (ExpressDeliveryPass child : childPasses) {
+            boolean isRto;
+            if (!explicitUndelivered.isEmpty()) {
+                isRto = explicitUndelivered.contains(child.getOrderId());
+            } else if (!explicitDelivered.isEmpty()) {
+                isRto = !explicitDelivered.contains(child.getOrderId());
+            } else {
+                isRto = false;
+            }
+
+            if (isRto) {
+                child.setStatus(ExpressPassStatus.RTO_CARRIED_OUT);
+                child.setDeliveryOutcome("RTO_CARRIED_OUT");
+                rtoCount++;
+            } else {
+                child.setStatus(ExpressPassStatus.COMPLETED);
+                child.setDeliveryOutcome("DELIVERED");
+                deliveredCount++;
+            }
+            child.setCheckedOutAt(now);
+            if (req.getGateId() != null) child.setExitGate(req.getGateId());
+            passRepository.save(child);
+        }
+
+        manifest.setDeliveredPackages(deliveredCount);
+        manifest.setPendingPackages(rtoCount);
+        manifest.setCheckedOutAt(now);
+        if (req.getGateId() != null) manifest.setExitGate(req.getGateId());
+        manifest.setStatus(rtoCount > 0 ? ExpressPassStatus.RTO_CARRIED_OUT : ExpressPassStatus.COMPLETED);
+        manifest = manifestRepository.save(manifest);
+
+        return toBatchResponse(manifest, childPasses, manifest.getDistinctFlats(), true, "OPEN_EXIT_BARRIER",
+                String.format("Exit reconciled: %d delivered, %d RTO carried out.", deliveredCount, rtoCount));
     }
 
     @Override
@@ -321,6 +538,57 @@ public class ExpressDeliveryPartnerServiceImpl implements ExpressDeliveryPartner
     private String generatePassCode() {
         int code = 1000 + random.nextInt(9000);
         return "EXP-" + code;
+    }
+
+    private ExpressBatchManifestResponse toBatchResponse(
+            ExpressDeliveryManifest manifest,
+            List<ExpressDeliveryPass> passes,
+            int distinctFlatsNotified,
+            boolean allowed,
+            String barrierAction,
+            String message) {
+        List<ExpressEntryResponse> pkgResponses = passes.stream()
+                .map(p -> ExpressEntryResponse.builder()
+                        .success(true)
+                        .id(p.getId())
+                        .orderId(p.getOrderId())
+                        .partner(p.getPartner())
+                        .entryPassCode(p.getEntryPassCode())
+                        .barcodePayload(p.getBarcodePayload())
+                        .status(p.getStatus())
+                        .flatNumber(p.getFlatNumber())
+                        .riderName(p.getRiderName())
+                        .vehicleNumber(p.getVehicleNumber())
+                        .leaveAtGate(p.getLeaveAtGate())
+                        .gateInstructions(p.getGateInstructions())
+                        .validFrom(p.getValidFrom())
+                        .validUntil(p.getValidUntil())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ExpressBatchManifestResponse.builder()
+                .success(true)
+                .allowed(allowed)
+                .manifestId(manifest.getId())
+                .manifestCode(manifest.getManifestCode())
+                .partner(manifest.getPartner())
+                .status(manifest.getStatus())
+                .riderName(manifest.getRiderName())
+                .riderPhone(manifest.getRiderPhone())
+                .vehicleNumber(manifest.getVehicleNumber())
+                .totalPackages(manifest.getTotalPackages())
+                .distinctFlats(manifest.getDistinctFlats())
+                .distinctFlatsNotified(distinctFlatsNotified)
+                .deliveredPackages(manifest.getDeliveredPackages())
+                .pendingPackages(manifest.getPendingPackages())
+                .barrierAction(barrierAction)
+                .message(message)
+                .validFrom(manifest.getValidFrom())
+                .validUntil(manifest.getValidUntil())
+                .checkedInAt(manifest.getCheckedInAt())
+                .checkedOutAt(manifest.getCheckedOutAt())
+                .packages(pkgResponses)
+                .build();
     }
 
     private ResidentDeliveryPreferenceDto mapToDto(ResidentDeliveryPreference p) {

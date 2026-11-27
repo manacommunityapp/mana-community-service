@@ -16,4 +16,5 @@ public interface ExpressDeliveryPassRepository extends JpaRepository<ExpressDeli
     Optional<ExpressDeliveryPass> findByPartnerAndOrderId(DeliveryPartner partner, String orderId);
     List<ExpressDeliveryPass> findByCommunityIdAndStatusOrderByCreatedAtDesc(Long communityId, ExpressPassStatus status);
     List<ExpressDeliveryPass> findByCommunityIdAndFlatNumberOrderByCreatedAtDesc(Long communityId, String flatNumber);
+    List<ExpressDeliveryPass> findByManifestIdOrderByIdAsc(Long manifestId);
 }

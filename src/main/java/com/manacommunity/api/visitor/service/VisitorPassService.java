@@ -49,6 +49,9 @@ public class VisitorPassService {
     @Autowired(required = false)
     private com.manacommunity.api.visitor.security.OfflineQrTokenService offlineQrTokenService;
 
+    @Autowired(required = false)
+    private com.manacommunity.api.delivery.service.OverstaySlaEngineService overstaySlaEngineService;
+
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
         return repo.findByCommunityIdOrderByCreatedAtDesc(communityId)
@@ -852,15 +855,45 @@ public class VisitorPassService {
     @org.springframework.scheduling.annotation.Scheduled(cron = "${app.visitor.overstay-cron:0 */15 * * * *}")
     @Transactional
     public void autoDetectOverstays() {
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(12);
+        LocalDateTime now = LocalDateTime.now();
         List<VisitorPass> checkedIn = repo.findAll().stream()
                 .filter(p -> p.getStatus() == VisitorPass.PassStatus.CHECKED_IN)
-                .filter(p -> p.getCheckedInAt() != null && p.getCheckedInAt().isBefore(cutoff))
+                .filter(p -> p.getCheckedInAt() != null)
                 .toList();
 
         for (VisitorPass p : checkedIn) {
             try {
-                sendOverstayAlert(p.getId(), "Automated check: visitor checked in > 12 hours ago without check-out record.");
+                if (overstaySlaEngineService != null) {
+                    var eval = overstaySlaEngineService.evaluateVisitorPass(p, now);
+                    if (!eval.overstayed()) {
+                        continue;
+                    }
+                    if (eval.action() == com.manacommunity.api.delivery.service.OverstaySlaEngineService.OverstayAction.RESIDENT_CONFIRMATION_PING) {
+                        if (p.getResident() != null) {
+                            notificationService.createNotification(
+                                    p.getResident().getId(),
+                                    NotificationType.VISITOR_OVERSTAY_ALERT,
+                                    NotificationCategory.COMMUNITY,
+                                    "Confirm Ongoing Service Visit",
+                                    eval.reason(),
+                                    "/visitors",
+                                    ReferenceType.VISITOR_PASS,
+                                    p.getId(),
+                                    NotificationPriority.NORMAL,
+                                    null,
+                                    p.getCommunity() != null ? p.getCommunity().getId() : null
+                            );
+                        }
+                        writeAudit(p.getId(), p.getVisitorName(), "RESIDENT_CONFIRMATION_PING", "System/SLA", eval.reason());
+                    } else {
+                        sendOverstayAlert(p.getId(), eval.reason());
+                    }
+                } else {
+                    LocalDateTime cutoff = now.minusHours(12);
+                    if (p.getCheckedInAt().isBefore(cutoff)) {
+                        sendOverstayAlert(p.getId(), "Automated check: visitor checked in > 12 hours ago without check-out record.");
+                    }
+                }
             } catch (Exception ex) {
                 log.warn("Failed to auto-send overstay alert for pass {}: {}", p.getId(), ex.getMessage());
             }

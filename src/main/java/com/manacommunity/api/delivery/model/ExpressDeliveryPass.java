@@ -89,6 +89,12 @@ public class ExpressDeliveryPass {
     @Column(name = "exit_gate", length = 64)
     private String exitGate;
 
+    @Column(name = "manifest_id")
+    private Long manifestId;
+
+    @Column(name = "delivery_outcome", length = 32)
+    private String deliveryOutcome;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

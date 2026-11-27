@@ -87,6 +87,16 @@ public class ExpressDeliveryPartnerController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/express-entry/batch")
+    @Operation(summary = "Register multi-order courier batch manifest", description = "Aggregates N packages across M distinct flats under one Master Manifest QR code (EXP-B-...) with flat-coalesced resident notifications.")
+    public ResponseEntity<ExpressBatchManifestResponse> registerBatchDispatch(
+            @Valid @RequestBody ExpressBatchDispatchRequest request,
+            @RequestHeader(value = "X-Partner-ID", required = false) String partnerId) {
+
+        log.info("Incoming Express Batch dispatch partnerId={} packages={}", partnerId, request.getPackages().size());
+        return ResponseEntity.ok(service.registerBatchDispatch(request, partnerId));
+    }
+
     @PostMapping("/verify")
     @Operation(summary = "Fast gate clearance verification", description = "Invoked by guard scanners or gate kiosks to instantly verify entry tokens (e.g. EXP-7729).")
     public ResponseEntity<ExpressVerifyResponse> verifyEntry(
@@ -97,6 +107,15 @@ public class ExpressDeliveryPartnerController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/batch/verify")
+    @Operation(summary = "1-tap bulk batch manifest gate check-in", description = "Clears an entire multi-package courier manifest in a single guard tap.")
+    public ResponseEntity<ExpressBatchManifestResponse> verifyBatchManifest(
+            @Valid @RequestBody ExpressVerifyRequest request) {
+
+        log.info("1-tap batch manifest verification for code={}", request.getEntryCode());
+        return ResponseEntity.ok(service.verifyBatchManifest(request));
+    }
+
     @PostMapping("/checkout")
     @Operation(summary = "Record rider exit", description = "Closes active gate pass when rider departs from the community.")
     public ResponseEntity<ExpressVerifyResponse> checkoutExit(
@@ -105,6 +124,15 @@ public class ExpressDeliveryPartnerController {
         log.info("Rider exit checkout identifier={}", request.getIdentifier());
         ExpressVerifyResponse response = service.checkoutExit(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/batch/checkout")
+    @Operation(summary = "Reconcile multi-order batch exit", description = "Marks delivered packages as DELIVERED and undelivered packages as RTO_CARRIED_OUT at gate exit.")
+    public ResponseEntity<ExpressBatchManifestResponse> reconcileBatchExit(
+            @Valid @RequestBody ExpressBatchCheckoutRequest request) {
+
+        log.info("Batch manifest exit reconciliation manifestCode={}", request.getManifestCode());
+        return ResponseEntity.ok(service.reconcileBatchExit(request));
     }
 
     @GetMapping("/society-rules/{communityId}")
