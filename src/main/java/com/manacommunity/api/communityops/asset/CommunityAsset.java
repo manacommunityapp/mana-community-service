@@ -48,15 +48,18 @@ public class CommunityAsset {
     @Column(name = "amc_expiry")
     private LocalDate amcExpiry;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AssetStatus status = AssetStatus.OPERATIONAL;
 
     private String notes;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Builder.Default
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 }

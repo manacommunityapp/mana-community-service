@@ -8,10 +8,9 @@ import java.util.stream.*;
 
 @RestController
 @RequestMapping("/api/v1/experiences")
-@CrossOrigin(origins = "*")
 public class ExperiencesController {
 
-    // ── DTOs ──────────────────────────────────────────────────────────────────
+    // â”€â”€ DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     record Experience(
         String id, String title, String category, String emoji, String backdropColor,
@@ -107,45 +106,45 @@ public class ExperiencesController {
         String id, String role, String text, String createdAt
     ) {}
 
-    // ── Mock Data ─────────────────────────────────────────────────────────────
+    // â”€â”€ Mock Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<Experience> MOCK_EXPERIENCES = List.of(
-        new Experience("exp-001", "Morning Yoga & Meditation", "WORKSHOPS", "🧘", "#059669",
+        new Experience("exp-001", "Morning Yoga & Meditation", "WORKSHOPS", "ðŸ§˜", "#059669",
             "Start your day with peaceful yoga and guided meditation in the community garden.",
             "Priya Wellness", true, "Club Lawn", "Phase 1",
             LocalDate.now().plusDays(2).format(DateTimeFormatter.ISO_LOCAL_DATE), "07:00",
             60, true, null, null, null, null, null,
             "OPEN", null, 25, 18, "UPCOMING", true,
             List.of("yoga", "wellness", "morning"), "All ages", "Non-refundable"),
-        new Experience("exp-002", "Photography Walk: Golden Hour", "OUTINGS", "📸", "#D97706",
+        new Experience("exp-002", "Photography Walk: Golden Hour", "OUTINGS", "ðŸ“¸", "#D97706",
             "Join our photography club for a stunning golden-hour walk around the community gardens.",
             "Lens Club Mana", false, "Garden Walk", "East Wing",
             LocalDate.now().plusDays(3).format(DateTimeFormatter.ISO_LOCAL_DATE), "06:30",
             90, false, 150, null, null, null, null,
             "OPEN", null, 20, 12, "UPCOMING", false,
             List.of("photography", "outdoors", "creative"), "12+", "Refundable till 24h before"),
-        new Experience("exp-003", "Community Cricket T20", "SPORTS", "🏏", "#0891B2",
+        new Experience("exp-003", "Community Cricket T20", "SPORTS", "ðŸ", "#0891B2",
             "Gear up for a thrilling T20 cricket match between community blocks. Full gear provided!",
             "Sports Committee", true, "Sports Complex", "Block D",
             LocalDate.now().plusDays(4).format(DateTimeFormatter.ISO_LOCAL_DATE), "10:00",
             180, false, 150, 120, 8, 14, null,
             "OPEN", null, 44, 28, "UPCOMING", true,
             List.of("cricket", "sports", "team"), "15+", "Refundable till 48h before"),
-        new Experience("exp-004", "Bollywood Movie Night", "MOVIES", "🎬", "#7C3AED",
+        new Experience("exp-004", "Bollywood Movie Night", "MOVIES", "ðŸŽ¬", "#7C3AED",
             "Outdoor screening of the blockbuster hit under the stars with popcorn and snacks.",
             "Entertainment Club", true, "Community Hall", "Main Block",
             LocalDate.now().plusDays(5).format(DateTimeFormatter.ISO_LOCAL_DATE), "19:30",
             180, false, 200, null, null, null, null,
             "OPEN", null, 100, 67, "UPCOMING", true,
             List.of("movies", "entertainment", "family"), "All ages", "Non-refundable"),
-        new Experience("exp-005", "North Indian Cooking Workshop", "WORKSHOPS", "👨‍🍳", "#DB2777",
+        new Experience("exp-005", "North Indian Cooking Workshop", "WORKSHOPS", "ðŸ‘¨â€ðŸ³", "#DB2777",
             "Learn authentic North Indian recipes from a professional chef. Ingredients included!",
             "Chef Anita Kumar", true, "Community Kitchen", "Block B",
             LocalDate.now().plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE), "11:00",
             150, false, 350, null, null, null, null,
             "MEMBERS_ONLY", "members", 16, 16, "UPCOMING", false,
             List.of("cooking", "food", "workshop"), "18+", "Refundable till 48h before"),
-        new Experience("exp-006", "Kids Art & Craft Fiesta", "KIDS_FAMILY", "🎨", "#F59E0B",
+        new Experience("exp-006", "Kids Art & Craft Fiesta", "KIDS_FAMILY", "ðŸŽ¨", "#F59E0B",
             "A fun-filled art session for kids with expert instructors. All materials provided!",
             "Little Artists Club", false, "Activity Hall", "Block A",
             LocalDate.now().plusDays(7).format(DateTimeFormatter.ISO_LOCAL_DATE), "10:30",
@@ -155,31 +154,31 @@ public class ExperiencesController {
     );
 
     private static final List<Partner> MOCK_PARTNERS = List.of(
-        new Partner("p-001", "Chaitime Café", "RESTAURANT", "☕", "#92400E",
-            "Premium chai & snacks — 20% off for residents", "Artisanal chai and fresh snacks",
+        new Partner("p-001", "Chaitime CafÃ©", "RESTAURANT", "â˜•", "#92400E",
+            "Premium chai & snacks â€” 20% off for residents", "Artisanal chai and fresh snacks",
             "Block A Ground Floor", "Phase 1", 4.5, 128, true, true,
             "20% off all orders", "9876543210", null,
-            List.of("Dine-in", "Takeaway", "Home Delivery"), "7am – 10pm", "₹₹", null),
-        new Partner("p-002", "AquaArena Swim Club", "SPORTS_VENUE", "🏊", "#0891B2",
-            "Olympic-size pool · Members swim free daily",
+            List.of("Dine-in", "Takeaway", "Home Delivery"), "7am â€“ 10pm", "â‚¹â‚¹", null),
+        new Partner("p-002", "AquaArena Swim Club", "SPORTS_VENUE", "ðŸŠ", "#0891B2",
+            "Olympic-size pool Â· Members swim free daily",
             "Professional swimming facility with heated pool",
             "Sports Complex, Block D", "Block D", 4.8, 234, true, true,
             "Members swim free 6-8am & 6-8pm", "9876543211", null,
-            List.of("Heated Pool", "Lockers", "Coaching", "Kids Pool"), "5am – 10pm", "₹₹₹", List.of("exp-001")),
-        new Partner("p-003", "Elite Cricket Academy", "COACHING", "🏏", "#059669",
-            "BCCI-certified coaches · Batch training", "Professional cricket coaching for all levels",
+            List.of("Heated Pool", "Lockers", "Coaching", "Kids Pool"), "5am â€“ 10pm", "â‚¹â‚¹â‚¹", List.of("exp-001")),
+        new Partner("p-003", "Elite Cricket Academy", "COACHING", "ðŸ", "#059669",
+            "BCCI-certified coaches Â· Batch training", "Professional cricket coaching for all levels",
             "Cricket Ground, Block D", "Block D", 4.7, 189, true, false,
             "15% off monthly packages", "9876543212", null,
-            List.of("Nets", "Video Analysis", "Gear Rental", "All Levels"), "6am – 8pm", "₹₹₹", null),
-        new Partner("p-004", "MindBody Wellness", "WELLNESS", "🧘", "#7C3AED",
-            "Yoga · Meditation · Therapy", "Holistic wellness center",
+            List.of("Nets", "Video Analysis", "Gear Rental", "All Levels"), "6am â€“ 8pm", "â‚¹â‚¹â‚¹", null),
+        new Partner("p-004", "MindBody Wellness", "WELLNESS", "ðŸ§˜", "#7C3AED",
+            "Yoga Â· Meditation Â· Therapy", "Holistic wellness center",
             "Block C, 2nd Floor", "Block C", 4.6, 156, false, false,
             "10% off first session", "9876543213", null,
-            List.of("Yoga Studio", "Meditation Room", "Therapy", "Online Classes"), "6am – 9pm", "₹₹", null)
+            List.of("Yoga Studio", "Meditation Room", "Therapy", "Online Classes"), "6am â€“ 9pm", "â‚¹â‚¹", null)
     );
 
     private static final List<CoachingSession> MOCK_COACHING = List.of(
-        new CoachingSession("cs-001", "p-003", "Elite Cricket Academy", "Cricket", "🏏",
+        new CoachingSession("cs-001", "p-003", "Elite Cricket Academy", "Cricket", "ðŸ",
             "Coach Ravi Kumar", "Ex-Ranji Trophy player, 10 years coaching experience",
             "ALL", 90, 800, 8,
             List.of(
@@ -187,14 +186,14 @@ public class ExperiencesController {
                 Map.of("date", LocalDate.now().plusDays(4).format(DateTimeFormatter.ISO_LOCAL_DATE), "time", "07:00", "spotsLeft", 5)
             ),
             "Cricket Ground", "Block D"),
-        new CoachingSession("cs-002", "p-002", "AquaArena Swim Club", "Swimming", "🏊",
+        new CoachingSession("cs-002", "p-002", "AquaArena Swim Club", "Swimming", "ðŸŠ",
             "Coach Preethi Sharma", "National-level swimmer, specialises in competitive technique",
             "BEGINNER", 60, 600, 6,
             List.of(
                 Map.of("date", LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE), "time", "06:00", "spotsLeft", 2)
             ),
             "AquaArena Pool", "Block D"),
-        new CoachingSession("cs-003", "p-004", "MindBody Wellness", "Yoga", "🧘",
+        new CoachingSession("cs-003", "p-004", "MindBody Wellness", "Yoga", "ðŸ§˜",
             "Instructor Meera Iyer", "RYT-500 certified, 8 years teaching Hatha & Vinyasa",
             "ALL", 75, 500, 10,
             List.of(
@@ -239,7 +238,7 @@ public class ExperiencesController {
         "WELCOME", "FLAT:100"
     );
 
-    // ── Experiences ───────────────────────────────────────────────────────────
+    // â”€â”€ Experiences â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping
     public List<Experience> getExperiences(
@@ -264,7 +263,7 @@ public class ExperiencesController {
             .orElse(Map.<String, Object>of("error", "Not found"));
     }
 
-    // ── Booking ───────────────────────────────────────────────────────────────
+    // â”€â”€ Booking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @PostMapping("/book")
     public BookResult book(@RequestBody BookRequest req) {
@@ -300,7 +299,7 @@ public class ExperiencesController {
         return bookings;
     }
 
-    // ── P2: Commerce ──────────────────────────────────────────────────────────
+    // â”€â”€ P2: Commerce â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @PostMapping("/coupons/validate")
     public CouponResult validateCoupon(@RequestBody Map<String, Object> body) {
@@ -314,7 +313,7 @@ public class ExperiencesController {
         double value = Double.parseDouble(parts[1]);
         double discountAmt = isPercent ? original * value / 100 : Math.min(value, original);
         double finalAmt = Math.max(0, original - discountAmt);
-        String msg = isPercent ? value + "% off applied!" : "₹" + (int)value + " off applied!";
+        String msg = isPercent ? value + "% off applied!" : "â‚¹" + (int)value + " off applied!";
         return new CouponResult(true, code, parts[0], value, discountAmt, finalAmt, msg);
     }
 
@@ -382,7 +381,7 @@ public class ExperiencesController {
         );
     }
 
-    // ── P3: Partners & Coaching ───────────────────────────────────────────────
+    // â”€â”€ P3: Partners & Coaching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/partners")
     public List<Partner> getPartners(@RequestParam(required = false) String category) {
@@ -422,7 +421,7 @@ public class ExperiencesController {
         );
     }
 
-    // ── P4: Mana Buddy AI ─────────────────────────────────────────────────────
+    // â”€â”€ P4: Mana Buddy AI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/buddy/interests")
     public List<String> getUserInterests() {
@@ -475,15 +474,15 @@ public class ExperiencesController {
         LocalDate sun = sat.plusDays(1);
         DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE;
         return List.of(
-            new ItineraryItem("exp-001", "Morning Yoga & Meditation", "🧘", "#059669",
+            new ItineraryItem("exp-001", "Morning Yoga & Meditation", "ðŸ§˜", "#059669",
                 sat.format(fmt), "07:00", "Club Lawn", "Phase 1", null, true, "Bring your mat"),
-            new ItineraryItem("exp-003", "Community Cricket T20", "🏏", "#0891B2",
+            new ItineraryItem("exp-003", "Community Cricket T20", "ðŸ", "#0891B2",
                 sat.format(fmt), "10:00", "Sports Complex", "Block D", 150.0, false, "Gear provided"),
-            new ItineraryItem("exp-004", "Bollywood Movie Night", "🎬", "#7C3AED",
-                sat.format(fmt), "19:30", "Community Hall", "Main Block", 200.0, false, "Popcorn included 🍿"),
-            new ItineraryItem("exp-002", "Photography Walk: Golden Hour", "📸", "#D97706",
+            new ItineraryItem("exp-004", "Bollywood Movie Night", "ðŸŽ¬", "#7C3AED",
+                sat.format(fmt), "19:30", "Community Hall", "Main Block", 200.0, false, "Popcorn included ðŸ¿"),
+            new ItineraryItem("exp-002", "Photography Walk: Golden Hour", "ðŸ“¸", "#D97706",
                 sun.format(fmt), "06:30", "Garden Walk", "East Wing", null, true, "Golden hour shoot"),
-            new ItineraryItem("exp-005", "Cooking Workshop: North Indian", "👨‍🍳", "#DB2777",
+            new ItineraryItem("exp-005", "Cooking Workshop: North Indian", "ðŸ‘¨â€ðŸ³", "#DB2777",
                 sun.format(fmt), "11:00", "Community Kitchen", "Block B", 350.0, false, "Ingredients included")
         );
     }
@@ -498,15 +497,15 @@ public class ExperiencesController {
         String text = ((String) body.getOrDefault("message", "")).toLowerCase();
         String response;
         if (text.contains("weekend") || text.contains("plan")) {
-            response = "Great idea! I can plan a personalised weekend for you based on your interests. Use the Itinerary Planner above to generate your schedule! 🗓️";
+            response = "Great idea! I can plan a personalised weekend for you based on your interests. Use the Itinerary Planner above to generate your schedule! ðŸ—“ï¸";
         } else if (text.contains("free") || text.contains("budget")) {
-            response = "Free this week: Morning Yoga (Club Lawn), Photography Walk (East Wing), and Nature Walk. Want me to add these to your plan? 🎁";
+            response = "Free this week: Morning Yoga (Club Lawn), Photography Walk (East Wing), and Nature Walk. Want me to add these to your plan? ðŸŽ";
         } else if (text.contains("family") || text.contains("kid")) {
-            response = "Family picks this weekend: Kids' Art Fiesta, Family Movie Night, and the Nature Walk suitable for all ages. Which sounds fun? 👨‍👩‍👧";
+            response = "Family picks this weekend: Kids' Art Fiesta, Family Movie Night, and the Nature Walk suitable for all ages. Which sounds fun? ðŸ‘¨â€ðŸ‘©â€ðŸ‘§";
         } else if (text.contains("sport") || text.contains("cricket") || text.contains("fitness")) {
-            response = "Cricket T20 is on Saturday at 10am with spots available! Also Yoga daily at 7am. Want me to book? 🏏";
+            response = "Cricket T20 is on Saturday at 10am with spots available! Also Yoga daily at 7am. Want me to book? ðŸ";
         } else {
-            response = "I'd love to help! I can suggest experiences, plan your weekend, or find residents with similar interests. What would you like? 😊";
+            response = "I'd love to help! I can suggest experiences, plan your weekend, or find residents with similar interests. What would you like? ðŸ˜Š";
         }
         return new BuddyMessage("msg-" + System.currentTimeMillis(), "buddy", response,
             LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE));

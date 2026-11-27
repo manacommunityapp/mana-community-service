@@ -14,7 +14,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @RestController("homeServiceWorkerGatePassController")
 @RequestMapping("/api/v1/home-services/gate-passes")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceWorkerGatePassController {
     private final HomeServiceWorkerGatePassService gatePassService;
 

@@ -10,7 +10,6 @@ import java.util.List;
 @RestController("homeServiceCategoryController")
 @RequestMapping("/api/v1/home-services/categories")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceCategoryController {
     private final HomeServiceCategoryRepository categoryRepository;
 

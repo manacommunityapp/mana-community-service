@@ -11,7 +11,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/cpos/ownership")
 @RequiredArgsConstructor
-@CrossOrigin
 public class OwnershipController {
 
     @GetMapping("/property/{propertyId}")

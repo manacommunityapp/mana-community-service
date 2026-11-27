@@ -45,6 +45,7 @@ public class SmartDevice {
     @Column(name = "firmware_version", length = 50)
     private String firmwareVersion;
 
+    @Builder.Default
     @Column(name = "is_online", nullable = false)
     private boolean online = true;
 
@@ -65,6 +66,7 @@ public class SmartDevice {
     @Column(name = "last_rtc_sync_at")
     private Instant lastRtcSyncAt;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

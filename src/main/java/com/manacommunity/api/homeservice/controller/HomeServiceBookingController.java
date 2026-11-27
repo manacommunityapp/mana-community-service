@@ -20,7 +20,6 @@ import java.util.List;
 @RestController("homeServiceBookingController")
 @RequestMapping({"/api/v1/home-services/bookings", "/v1/home-services/bookings"})
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceBookingController {
     private final HomeServiceBookingService bookingService;
 

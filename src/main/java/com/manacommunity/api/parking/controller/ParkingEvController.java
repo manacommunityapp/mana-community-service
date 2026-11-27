@@ -19,7 +19,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/parking-ev")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class ParkingEvController {
 
     private final VisitorParkingService visitorService;

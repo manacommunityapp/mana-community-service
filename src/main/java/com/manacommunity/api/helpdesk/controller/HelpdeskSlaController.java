@@ -21,7 +21,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/helpdesk-sla")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HelpdeskSlaController {
 
     private final SlaEscalationService slaService;

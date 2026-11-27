@@ -18,10 +18,12 @@ public class MobilityDriver {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private AppUser user;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private MobilityDriverStatus status = MobilityDriverStatus.PENDING;
 
+    @Builder.Default
     @Column(nullable = false, length = 10)
     private String availability = "OFFLINE";
 
@@ -34,9 +36,11 @@ public class MobilityDriver {
     @Column(name = "location_updated_at")
     private Instant locationUpdatedAt;
 
+    @Builder.Default
     @Column(name = "avg_rating", precision = 3, scale = 2)
     private BigDecimal avgRating = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name = "total_trips", nullable = false)
     private int totalTrips = 0;
 
@@ -44,9 +48,11 @@ public class MobilityDriver {
     @JoinColumn(name = "service_zone_id")
     private MobilityServiceZone serviceZone;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Builder.Default
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 

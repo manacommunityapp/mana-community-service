@@ -35,6 +35,7 @@ public class StaffLeaveRequest {
 
     private String reason;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LeaveStatus status = LeaveStatus.PENDING;
@@ -48,6 +49,7 @@ public class StaffLeaveRequest {
     @Column(name = "review_notes")
     private String reviewNotes;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

@@ -7,10 +7,9 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/movies")
-@CrossOrigin(origins = "*")
 public class MovieController {
 
-    // ── DTOs ─────────────────────────────────────────────────────────────────
+    // â”€â”€ DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     record Movie(String id, String title, String language, List<String> genre,
                  String rating, int durationMins, String posterEmoji, String backdropColor,
@@ -30,21 +29,21 @@ public class MovieController {
     record BookResult(String bookingId, String upiIntentUrl, String phonePeUrl,
                       String transactionRef, double amount, List<String> seats, String qrData) {}
 
-    // ── Mock Data ─────────────────────────────────────────────────────────────
+    // â”€â”€ Mock Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<Movie> NOW_SHOWING = List.of(
-        new Movie("m1", "Pushpa 2: The Rule", "Telugu", List.of("Action", "Drama"), "8.5", 179, "🔥", "#7C2D12", "Allu Arjun, Rashmika Mandanna", "Sukumar", "2024-12-05", "UA", "NOW_SHOWING"),
-        new Movie("m2", "Devara", "Telugu", List.of("Action", "Thriller"), "7.8", 166, "⚔️", "#1E3A5F", "Jr. NTR, Janhvi Kapoor", "Koratala Siva", "2024-09-27", "UA", "NOW_SHOWING"),
-        new Movie("m3", "Singham Again", "Hindi", List.of("Action", "Comedy"), "7.2", 162, "👮", "#1E293B", "Ajay Devgn, Deepika Padukone", "Rohit Shetty", "2024-11-01", "UA", "NOW_SHOWING"),
-        new Movie("m4", "Venom: The Last Dance", "English", List.of("Action", "Sci-Fi"), "6.9", 109, "🕷️", "#1A1A2E", "Tom Hardy, Juno Temple", "Kelly Marcel", "2024-10-25", "UA", "NOW_SHOWING"),
-        new Movie("m5", "Kanguva", "Tamil", List.of("Action", "Fantasy"), "5.8", 164, "⚡", "#4A044E", "Suriya, Disha Patani", "Siva", "2024-11-14", "UA", "NOW_SHOWING"),
-        new Movie("m6", "Lucky Baskhar", "Telugu", List.of("Drama", "Thriller"), "8.2", 154, "🎰", "#14532D", "Dulquer Salmaan, Meenakshi Chaudhary", "Venky Atluri", "2024-10-31", "UA", "NOW_SHOWING")
+        new Movie("m1", "Pushpa 2: The Rule", "Telugu", List.of("Action", "Drama"), "8.5", 179, "ðŸ”¥", "#7C2D12", "Allu Arjun, Rashmika Mandanna", "Sukumar", "2024-12-05", "UA", "NOW_SHOWING"),
+        new Movie("m2", "Devara", "Telugu", List.of("Action", "Thriller"), "7.8", 166, "âš”ï¸", "#1E3A5F", "Jr. NTR, Janhvi Kapoor", "Koratala Siva", "2024-09-27", "UA", "NOW_SHOWING"),
+        new Movie("m3", "Singham Again", "Hindi", List.of("Action", "Comedy"), "7.2", 162, "ðŸ‘®", "#1E293B", "Ajay Devgn, Deepika Padukone", "Rohit Shetty", "2024-11-01", "UA", "NOW_SHOWING"),
+        new Movie("m4", "Venom: The Last Dance", "English", List.of("Action", "Sci-Fi"), "6.9", 109, "ðŸ•·ï¸", "#1A1A2E", "Tom Hardy, Juno Temple", "Kelly Marcel", "2024-10-25", "UA", "NOW_SHOWING"),
+        new Movie("m5", "Kanguva", "Tamil", List.of("Action", "Fantasy"), "5.8", 164, "âš¡", "#4A044E", "Suriya, Disha Patani", "Siva", "2024-11-14", "UA", "NOW_SHOWING"),
+        new Movie("m6", "Lucky Baskhar", "Telugu", List.of("Drama", "Thriller"), "8.2", 154, "ðŸŽ°", "#14532D", "Dulquer Salmaan, Meenakshi Chaudhary", "Venky Atluri", "2024-10-31", "UA", "NOW_SHOWING")
     );
 
     private static final List<Movie> COMING_SOON = List.of(
-        new Movie("m7", "Kalki 2898 AD – Part 2", "Telugu", List.of("Sci-Fi", "Action"), "TBD", 180, "🚀", "#292524", "Prabhas, Deepika Padukone", "Nag Ashwin", "2025-01-12", "UA", "COMING_SOON"),
-        new Movie("m8", "Deva", "Hindi", List.of("Action", "Thriller"), "TBD", 150, "🎯", "#1C1917", "Shahid Kapoor, Pooja Hegde", "Rosshan Andrrews", "2025-01-31", "UA", "COMING_SOON"),
-        new Movie("m9", "Mufasa: The Lion King", "English", List.of("Animation", "Family"), "TBD", 118, "🦁", "#7C2D12", "Aaron Pierre, Kelvin Harrison Jr.", "Barry Jenkins", "2024-12-20", "U", "COMING_SOON")
+        new Movie("m7", "Kalki 2898 AD â€“ Part 2", "Telugu", List.of("Sci-Fi", "Action"), "TBD", 180, "ðŸš€", "#292524", "Prabhas, Deepika Padukone", "Nag Ashwin", "2025-01-12", "UA", "COMING_SOON"),
+        new Movie("m8", "Deva", "Hindi", List.of("Action", "Thriller"), "TBD", 150, "ðŸŽ¯", "#1C1917", "Shahid Kapoor, Pooja Hegde", "Rosshan Andrrews", "2025-01-31", "UA", "COMING_SOON"),
+        new Movie("m9", "Mufasa: The Lion King", "English", List.of("Animation", "Family"), "TBD", 118, "ðŸ¦", "#7C2D12", "Aaron Pierre, Kelvin Harrison Jr.", "Barry Jenkins", "2024-12-20", "U", "COMING_SOON")
     );
 
     private static final List<Map<String, Object>> THEATERS = List.of(
@@ -55,7 +54,7 @@ public class MovieController {
 
     private static final String[] TIMES = {"10:00 AM", "1:30 PM", "4:45 PM", "8:00 PM", "10:30 PM"};
 
-    // ── Endpoints ─────────────────────────────────────────────────────────────
+    // â”€â”€ Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping
     public Map<String, Object> getMovies() {

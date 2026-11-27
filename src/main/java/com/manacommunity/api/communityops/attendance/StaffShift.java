@@ -39,6 +39,7 @@ public class StaffShift {
     @Column(name = "actual_end")
     private Instant actualEnd;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AttendanceStatus status = AttendanceStatus.ABSENT;
@@ -48,6 +49,7 @@ public class StaffShift {
 
     private String notes;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

@@ -16,7 +16,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/tenancy")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class TenancyWorkflowController {
 
     private final MoveOutSagaService sagaService;

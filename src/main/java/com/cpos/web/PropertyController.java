@@ -19,19 +19,18 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Property Master Controller — REST API for Property Digital Twin operations.
+ * Property Master Controller â€” REST API for Property Digital Twin operations.
  * Base path: /api/v1/cpos/properties
  *
  * <p>Access control:</p>
  * <ul>
- *   <li>SUPER_ADMIN — full cross-community access across all tenants.</li>
- *   <li>ADMIN / COMMUNITY_ADMIN — scoped strictly to their own community via {@link CommunityUuidBridge}.</li>
+ *   <li>SUPER_ADMIN â€” full cross-community access across all tenants.</li>
+ *   <li>ADMIN / COMMUNITY_ADMIN â€” scoped strictly to their own community via {@link CommunityUuidBridge}.</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/cpos/properties")
 @RequiredArgsConstructor
-@CrossOrigin
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class PropertyController {
 

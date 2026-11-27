@@ -15,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/mobile-engineering")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class MobileEngineeringController {
 
     private final BatteryReliabilityService batteryService;

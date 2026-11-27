@@ -31,10 +31,9 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/recharge")
-@CrossOrigin(origins = "*")
 public class RechargeController {
 
-    // ── DTOs ─────────────────────────────────────────────────────────────────
+    // â”€â”€ DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class RechargePlanDto {
@@ -81,14 +80,14 @@ public class RechargeController {
         private String planDescription;
     }
 
-    // ── Static plan catalogue ─────────────────────────────────────────────────
+    // â”€â”€ Static plan catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<RechargePlanDto> JIO_PLANS = List.of(
         RechargePlanDto.builder().id("JIO-239").operatorId("JIO").category("POPULAR").price(239).validity("28 days").data("1.5 GB/day").calls("Unlimited").sms("100/day").description("Standard daily data pack").isBestSeller(true).build(),
         RechargePlanDto.builder().id("JIO-299").operatorId("JIO").category("UNLIMITED").price(299).validity("28 days").data("2 GB/day").calls("Unlimited").sms("100/day").description("Extra data for heavy users").isRecommended(true).build(),
         RechargePlanDto.builder().id("JIO-479").operatorId("JIO").category("DATA").price(479).validity("56 days").data("1.5 GB/day").calls("Unlimited").sms("100/day").description("2-month pack").build(),
         RechargePlanDto.builder().id("JIO-719").operatorId("JIO").category("VALIDITY").price(719).validity("84 days").data("1.5 GB/day").calls("Unlimited").sms("100/day").description("3-month plan").build(),
-        RechargePlanDto.builder().id("JIO-2879").operatorId("JIO").category("VALIDITY").price(2879).validity("365 days").data("2 GB/day").calls("Unlimited").sms("100/day").description("Annual plan — best per-day value").build()
+        RechargePlanDto.builder().id("JIO-2879").operatorId("JIO").category("VALIDITY").price(2879).validity("365 days").data("2 GB/day").calls("Unlimited").sms("100/day").description("Annual plan â€” best per-day value").build()
     );
 
     private static final List<RechargePlanDto> AIRTEL_PLANS = List.of(
@@ -121,7 +120,7 @@ public class RechargeController {
         "MTNL", MTNL_PLANS
     );
 
-    // ── Endpoints ─────────────────────────────────────────────────────────────
+    // â”€â”€ Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/plans")
     public ResponseEntity<List<RechargePlanDto>> getPlans(

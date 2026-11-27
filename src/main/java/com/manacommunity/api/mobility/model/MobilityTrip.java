@@ -47,6 +47,7 @@ public class MobilityTrip {
     @Column(name = "service_type", nullable = false, length = 20)
     private MobilityServiceType serviceType;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 25)
     private MobilityTripStatus status = MobilityTripStatus.REQUESTED;
@@ -78,18 +79,23 @@ public class MobilityTrip {
     @Column(name = "quote_id", length = 64)
     private String quoteId;
 
+    @Builder.Default
     @Column(name = "base_fare", nullable = false, precision = 10, scale = 2)
     private BigDecimal baseFare = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name = "distance_fare", nullable = false, precision = 10, scale = 2)
     private BigDecimal distanceFare = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name = "duration_fare", nullable = false, precision = 10, scale = 2)
     private BigDecimal durationFare = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal taxes = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name = "quoted_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal quotedTotal = BigDecimal.ZERO;
 
@@ -102,6 +108,7 @@ public class MobilityTrip {
     @Column(name = "eta_minutes")
     private Integer etaMinutes;
 
+    @Builder.Default
     @Column(name = "payment_method", nullable = false, length = 20)
     private String paymentMethod = "CASH";
 
@@ -161,6 +168,7 @@ public class MobilityTrip {
     @Column(name = "driver_rating")
     private Short driverRating;
 
+    @Builder.Default
     @Column(name = "requested_at", nullable = false, updatable = false)
     private Instant requestedAt = Instant.now();
 

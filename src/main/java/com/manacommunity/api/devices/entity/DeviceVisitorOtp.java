@@ -33,6 +33,7 @@ public class DeviceVisitorOtp {
     @Column(name = "visitor_name", length = 200)
     private String visitorName;
 
+    @Builder.Default
     @Column(name = "valid_from", nullable = false)
     private Instant validFrom = Instant.now();
 

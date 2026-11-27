@@ -15,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @RestController("homeServiceRequirementController")
 @RequestMapping("/api/v1/home-services/requirements")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceRequirementController {
     private final HomeServiceRequirementService requirementService;
 

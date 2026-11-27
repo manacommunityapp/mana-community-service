@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/vendor-procurement")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class VendorProcurementController {
 
     private final ThreeWayMatchingService matchingService;

@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/dsa")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DsaShowcaseController {
 
     private final IntervalMergingService intervalService;

@@ -15,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @RestController("homeServiceAdminController")
 @RequestMapping("/api/v1/home-services/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class HomeServiceAdminController {
     private final HomeServiceAdminService adminService;

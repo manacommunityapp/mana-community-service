@@ -11,7 +11,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/cpos/ai")
 @RequiredArgsConstructor
-@CrossOrigin
 public class AiPlatformController {
 
     @GetMapping("/valuation/{propertyId}")

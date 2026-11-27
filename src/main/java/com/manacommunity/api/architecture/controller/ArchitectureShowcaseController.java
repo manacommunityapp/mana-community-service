@@ -12,7 +12,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/architecture")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class ArchitectureShowcaseController {
 
     private final StranglerExtractionService stranglerService;

@@ -17,14 +17,13 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Fixed Deposit stub controller.
- * GET  /api/v1/fd/products      — browse available FD products
- * GET  /api/v1/fd/my-fds        — active FDs for the user
- * POST /api/v1/fd/book          — book a new FD (returns UPI intent)
+ * GET  /api/v1/fd/products      â€” browse available FD products
+ * GET  /api/v1/fd/my-fds        â€” active FDs for the user
+ * POST /api/v1/fd/book          â€” book a new FD (returns UPI intent)
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/fd")
-@CrossOrigin(origins = "*")
 public class FDController {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -83,44 +82,44 @@ public class FDController {
         private String status;
     }
 
-    // ── Product catalogue ──────────────────────────────────────────
+    // â”€â”€ Product catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<FDProductDto> FD_PRODUCTS = List.of(
-        FDProductDto.builder().id("SBI_FD").bank("State Bank of India").bankIcon("🏛").category("BANK")
+        FDProductDto.builder().id("SBI_FD").bank("State Bank of India").bankIcon("ðŸ›").category("BANK")
             .interestRate(6.80).seniorRate(7.30).minAmount(1000).maxAmount(10000000).isTaxSaver(true).rating("AAA")
             .tenures(List.of(
                 new TenureDto("7 Days", 1, 4.50), new TenureDto("3 Months", 3, 6.00),
                 new TenureDto("6 Months", 6, 6.50), new TenureDto("1 Year", 12, 6.80),
                 new TenureDto("2 Years", 24, 7.00), new TenureDto("5 Years", 60, 6.50)
             )).build(),
-        FDProductDto.builder().id("HDFC_FD").bank("HDFC Bank").bankIcon("🏦").category("BANK")
+        FDProductDto.builder().id("HDFC_FD").bank("HDFC Bank").bankIcon("ðŸ¦").category("BANK")
             .interestRate(7.10).seniorRate(7.60).minAmount(5000).maxAmount(10000000).isTaxSaver(true).rating("AAA")
             .tenures(List.of(
                 new TenureDto("3 Months", 3, 6.25), new TenureDto("6 Months", 6, 6.60),
                 new TenureDto("1 Year", 12, 7.10), new TenureDto("2 Years", 24, 7.15),
                 new TenureDto("3 Years", 36, 7.00), new TenureDto("5 Years", 60, 7.00)
             )).build(),
-        FDProductDto.builder().id("BAJAJ_FD").bank("Bajaj Finance").bankIcon("💼").category("NBFC")
+        FDProductDto.builder().id("BAJAJ_FD").bank("Bajaj Finance").bankIcon("ðŸ’¼").category("NBFC")
             .interestRate(8.10).seniorRate(8.35).minAmount(15000).maxAmount(10000000).isTaxSaver(false).rating("AAA")
             .tenures(List.of(
                 new TenureDto("12 Months", 12, 7.40), new TenureDto("24 Months", 24, 8.10),
                 new TenureDto("36 Months", 36, 8.10), new TenureDto("44 Months", 44, 8.10),
                 new TenureDto("60 Months", 60, 7.90)
             )).build(),
-        FDProductDto.builder().id("ICICI_FD").bank("ICICI Bank").bankIcon("🔷").category("BANK")
+        FDProductDto.builder().id("ICICI_FD").bank("ICICI Bank").bankIcon("ðŸ”·").category("BANK")
             .interestRate(7.10).seniorRate(7.60).minAmount(10000).maxAmount(10000000).isTaxSaver(true).rating("AAA")
             .tenures(List.of(
                 new TenureDto("3 Months", 3, 6.00), new TenureDto("6 Months", 6, 6.50),
                 new TenureDto("1 Year", 12, 7.10), new TenureDto("15 Months", 15, 7.25),
                 new TenureDto("2 Years", 24, 7.10), new TenureDto("5 Years", 60, 7.00)
             )).build(),
-        FDProductDto.builder().id("POST_OFFICE_FD").bank("India Post (Post Office)").bankIcon("📮").category("POST_OFFICE")
+        FDProductDto.builder().id("POST_OFFICE_FD").bank("India Post (Post Office)").bankIcon("ðŸ“®").category("POST_OFFICE")
             .interestRate(7.50).seniorRate(7.50).minAmount(1000).maxAmount(10000000).isTaxSaver(true).rating("Sovereign")
             .tenures(List.of(
                 new TenureDto("1 Year", 12, 6.90), new TenureDto("2 Years", 24, 7.00),
                 new TenureDto("3 Years", 36, 7.10), new TenureDto("5 Years", 60, 7.50)
             )).build(),
-        FDProductDto.builder().id("SHRIRAM_FD").bank("Shriram Finance").bankIcon("🏢").category("NBFC")
+        FDProductDto.builder().id("SHRIRAM_FD").bank("Shriram Finance").bankIcon("ðŸ¢").category("NBFC")
             .interestRate(8.35).seniorRate(8.85).minAmount(5000).maxAmount(10000000).isTaxSaver(false).rating("AA+")
             .tenures(List.of(
                 new TenureDto("12 Months", 12, 7.85), new TenureDto("24 Months", 24, 8.25),
@@ -134,7 +133,7 @@ public class FDController {
         return (int) Math.round(principal * Math.pow(1.0 + r / 4.0, quarters));
     }
 
-    // ── Endpoints ─────────────────────────────────────────────────
+    // â”€â”€ Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/products")
     public ResponseEntity<List<FDProductDto>> getProducts() {
