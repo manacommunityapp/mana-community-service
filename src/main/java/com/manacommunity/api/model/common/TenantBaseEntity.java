@@ -7,11 +7,24 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 @MappedSuperclass
+@FilterDef(
+        name = TenantBaseEntity.TENANT_COMMUNITY_FILTER,
+        parameters = @ParamDef(name = "communityId", type = Long.class)
+)
+@Filter(
+        name = TenantBaseEntity.TENANT_COMMUNITY_FILTER,
+        condition = "community_id = :communityId"
+)
 @Getter
 @Setter
 public abstract class TenantBaseEntity extends BaseAuditEntity {
+
+    public static final String TENANT_COMMUNITY_FILTER = "tenantCommunityFilter";
 
     @Column(name = "organization_id", nullable = false)
     private Long organizationId;

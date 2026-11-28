@@ -7,6 +7,7 @@ import com.manacommunity.api.sports.dto.BallEventResponse;
 
 import java.util.List;
 
+@lombok.Builder
 public record SportsLiveMatchStateResponse(
     Long matchId,
     String status,

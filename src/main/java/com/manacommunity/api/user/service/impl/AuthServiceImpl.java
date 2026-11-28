@@ -93,6 +93,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.email.EmailSupport emailSupport;
     @Autowired
     private com.manacommunity.api.security.RsaKeyService rsaKeyService;
+    @Autowired(required = false)
+    private com.manacommunity.api.security.CommunityMembershipService communityMembershipService;
 
     @Override
     public void sendSignupOtp(String rawEmail, String phone) {
@@ -481,7 +483,24 @@ public class AuthServiceImpl implements AuthService {
                         .distinct()
                         .toList();
 
-        String token = jwtTokenProvider.generateToken(user, permissions);
+        Long defaultCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (defaultCommunityId == null && communityMembershipService != null) {
+            defaultCommunityId = communityMembershipService.resolveDefaultCommunityId(user);
+        }
+        var unit = (communityMembershipService != null && defaultCommunityId != null)
+                ? communityMembershipService.resolveDefaultUnitContext(user, defaultCommunityId)
+                : null;
+        Long towerId = unit != null
+                ? unit.towerId()
+                : com.manacommunity.api.security.CommunityMembershipService.computeTowerId(
+                        defaultCommunityId,
+                        (user.getTower() != null && !user.getTower().isBlank()) ? user.getTower() : user.getBlock());
+        Long flatId = unit != null ? unit.flatId() : null;
+        String towerName = unit != null && unit.towerBlock() != null ? unit.towerBlock() : user.getTower();
+        String flatNumber = unit != null && unit.flatNumber() != null ? unit.flatNumber() : user.getFlatNo();
+
+        String token = jwtTokenProvider.generateTokenForContext(
+                user, defaultCommunityId, towerId, flatId, rolesList, permissions);
 
         AuthResponse response = new AuthResponse(
                 String.valueOf(user.getId()),
@@ -490,12 +509,18 @@ public class AuthServiceImpl implements AuthService {
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
-                user.getCommunity() != null ? user.getCommunity().getId() : null,
+                defaultCommunityId,
                 user.getDateOfBirth()
         );
+        response.setTowerId(towerId);
+        response.setFlatId(flatId);
+        response.setTower(towerName);
+        response.setBlock(user.getBlock());
+        response.setFlatNo(flatNumber);
         response.setRoles(rolesList);
         response.setPermissions(permissions);
-        response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
+        response.setRefreshToken(jwtTokenProvider.generateRefreshTokenForContext(
+                user, defaultCommunityId, towerId, flatId, rolesList));
         
         java.util.List<String> enabledModules;
         if (user.hasRole(ROLE_SUPER_ADMIN)) {

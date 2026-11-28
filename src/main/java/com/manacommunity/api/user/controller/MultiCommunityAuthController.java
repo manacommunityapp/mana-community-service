@@ -3,6 +3,7 @@ package com.manacommunity.api.user.controller;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.CommunityModule;
 import com.manacommunity.api.repository.CommunityModuleRepository;
+import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.security.CommunityMembershipService;
 import com.manacommunity.api.security.CommunityMembershipService.CommunityRoleContext;
 import com.manacommunity.api.security.CookieAuthHelper;
@@ -33,13 +34,18 @@ import java.util.Map;
 public class MultiCommunityAuthController {
 
     private final AppUserRepository userRepository;
+    private final CommunityRepository communityRepository;
     private final CommunityMembershipService membershipService;
     private final JwtTokenProvider jwtTokenProvider;
     private final RolePermissionService rolePermissionService;
     private final CommunityModuleRepository communityModuleRepository;
     private final CookieAuthHelper cookieAuthHelper;
 
-    public record SwitchCommunityRequest(Long communityId) {}
+    public record SwitchCommunityRequest(Long communityId, Long flatId) {
+        public SwitchCommunityRequest(Long communityId) {
+            this(communityId, null);
+        }
+    }
 
     @GetMapping("/communities")
     public ResponseEntity<Map<String, Object>> getMyCommunities(@AuthenticationPrincipal UserPrincipal principal) {
@@ -76,10 +82,38 @@ public class MultiCommunityAuthController {
             throw new AccessDeniedException("User is not a verified resident, owner, tenant, or vendor in community " + targetCommunityId);
         }
 
+        if (communityRepository != null) {
+            communityRepository.findById(targetCommunityId).ifPresent(comm -> {
+                user.setCommunity(comm);
+                userRepository.save(user);
+            });
+        }
+
         List<String> scopedRoles = membershipService.resolveRolesForCommunity(user, targetCommunityId);
         List<String> effectivePerms = rolePermissionService.getEffectivePermissionsForUser(user);
-        String accessToken = jwtTokenProvider.generateTokenForCommunity(user, targetCommunityId, scopedRoles, effectivePerms);
-        String refreshToken = jwtTokenProvider.generateRefreshTokenForCommunity(user, targetCommunityId, scopedRoles);
+
+        CommunityMembershipService.ResidentUnitContext unit = null;
+        if (request.flatId() != null) {
+            if (!membershipService.isUserAuthorizedForProperty(user, targetCommunityId, request.flatId())) {
+                throw new AccessDeniedException("User is not authorized for flat " + request.flatId()
+                        + " in community " + targetCommunityId);
+            }
+            unit = membershipService.resolveUnitContextForFlat(user, targetCommunityId, request.flatId());
+        } else {
+            unit = membershipService.resolveDefaultUnitContext(user, targetCommunityId);
+        }
+
+        Long towerId = unit != null ? unit.towerId() : CommunityMembershipService.computeTowerId(
+                targetCommunityId,
+                (user.getTower() != null && !user.getTower().isBlank()) ? user.getTower() : user.getBlock());
+        Long flatId = unit != null ? unit.flatId() : request.flatId();
+        String towerName = unit != null && unit.towerBlock() != null ? unit.towerBlock() : user.getTower();
+        String flatNo = unit != null && unit.flatNumber() != null ? unit.flatNumber() : user.getFlatNo();
+
+        String accessToken = jwtTokenProvider.generateTokenForContext(
+                user, targetCommunityId, towerId, flatId, scopedRoles, effectivePerms);
+        String refreshToken = jwtTokenProvider.generateRefreshTokenForContext(
+                user, targetCommunityId, towerId, flatId, scopedRoles);
 
         if (httpResponse != null && cookieAuthHelper != null) {
             cookieAuthHelper.setAuthCookies(httpResponse, accessToken, refreshToken);
@@ -100,6 +134,11 @@ public class MultiCommunityAuthController {
                 targetCommunityId,
                 user.getDateOfBirth()
         );
+        response.setTowerId(towerId);
+        response.setFlatId(flatId);
+        response.setTower(towerName);
+        response.setBlock(user.getBlock());
+        response.setFlatNo(flatNo);
         response.setRefreshToken(refreshToken);
         response.setRoles(scopedRoles);
         response.setPermissions(effectivePerms);

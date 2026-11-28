@@ -16,6 +16,9 @@ public class TenantContext implements AutoCloseable {
 
     private Long organizationId;
     private Long communityId;
+    private Long towerId;
+    private String towerBlock;
+    private Long flatId;
     private Long propertyId;
     private Long userId;
 
@@ -58,6 +61,33 @@ public class TenantContext implements AutoCloseable {
         return ctx != null ? ctx.communityId : null;
     }
 
+    public static Long getTowerId() {
+        TenantContext ctx = CURRENT_CONTEXT.get();
+        return ctx != null ? ctx.towerId : null;
+    }
+
+    public static String getTowerBlock() {
+        TenantContext ctx = CURRENT_CONTEXT.get();
+        return ctx != null ? ctx.towerBlock : null;
+    }
+
+    public static Long getFlatId() {
+        TenantContext ctx = CURRENT_CONTEXT.get();
+        if (ctx == null) return null;
+        return ctx.flatId != null ? ctx.flatId : ctx.propertyId;
+    }
+
+    public static Long getPropertyId() {
+        TenantContext ctx = CURRENT_CONTEXT.get();
+        if (ctx == null) return null;
+        return ctx.propertyId != null ? ctx.propertyId : ctx.flatId;
+    }
+
+    public static Long getUserId() {
+        TenantContext ctx = CURRENT_CONTEXT.get();
+        return ctx != null ? ctx.userId : null;
+    }
+
     public static Long requireCommunityId() {
         Long cId = getCommunityId();
         if (cId == null) {
@@ -80,6 +110,15 @@ public class TenantContext implements AutoCloseable {
         ctx.setCommunityId(communityId);
     }
 
+    public static void setUnitContext(Long towerId, String towerBlock, Long flatId, Long userId) {
+        TenantContext ctx = getContext();
+        ctx.setTowerId(towerId);
+        ctx.setTowerBlock(towerBlock);
+        ctx.setFlatId(flatId);
+        ctx.setPropertyId(flatId);
+        ctx.setUserId(userId);
+    }
+
     public static String getTenantId() {
         Long cId = getCommunityId();
         return cId != null ? "community_" + cId : DEFAULT_SCHEMA;
@@ -98,6 +137,9 @@ public class TenantContext implements AutoCloseable {
         return TenantContext.builder()
                 .organizationId(this.organizationId)
                 .communityId(this.communityId)
+                .towerId(this.towerId)
+                .towerBlock(this.towerBlock)
+                .flatId(this.flatId)
                 .propertyId(this.propertyId)
                 .userId(this.userId)
                 .build();

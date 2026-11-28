@@ -31,6 +31,8 @@ public class UserResponse {
     private String govtIdType;
     private String govtIdNumber;
     private Long communityId;
+    private Long towerId;
+    private Long flatId;
     private Long roleId;
     private Boolean isActive;
     private java.util.List<String> permissions;

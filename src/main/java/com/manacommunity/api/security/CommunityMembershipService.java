@@ -62,8 +62,50 @@ public class CommunityMembershipService {
             String communityName,
             List<String> roles,
             List<String> flatNumbers,
-            boolean isDefault
+            boolean isDefault,
+            Long primaryFlatId,
+            Long primaryTowerId,
+            String primaryTowerBlock
+    ) {
+        public CommunityRoleContext(
+                Long communityId,
+                String communityName,
+                List<String> roles,
+                List<String> flatNumbers,
+                boolean isDefault) {
+            this(communityId, communityName, roles, flatNumbers, isDefault, null, null, null);
+        }
+    }
+
+    public record ResidentUnitContext(
+            Long communityId,
+            Long towerId,
+            String towerBlock,
+            Long flatId,
+            String flatNumber,
+            boolean isPrimary
     ) {}
+
+    /**
+     * Derives a deterministic, canonical {@code towerId} for a `(communityId, towerBlock)` pair
+     * when the schema stores tower/block as a string rather than a separate tower FK table.
+     */
+    public static Long computeTowerId(Long communityId, String towerBlock) {
+        if (communityId == null || towerBlock == null || towerBlock.isBlank()) {
+            return null;
+        }
+        String normalized = towerBlock.trim().toUpperCase(Locale.ROOT)
+                .replaceAll("^TOWER\\s+", "")
+                .replaceAll("^BLOCK\\s+", "");
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        String key = communityId + ":" + normalized;
+        crc.update(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        long val = crc.getValue() & 0x7FFF_FFFFL;
+        return val == 0L ? 1L : val;
+    }
 
     /**
      * Returns the set of community IDs the given user is authorized to access:
@@ -256,12 +298,16 @@ public class CommunityMembershipService {
         List<CommunityRoleContext> contexts = new ArrayList<>();
         for (Map.Entry<Long, String> entry : namesById.entrySet()) {
             Long cid = entry.getKey();
+            ResidentUnitContext unit = resolveDefaultUnitContext(user, cid);
             contexts.add(new CommunityRoleContext(
                     cid,
                     entry.getValue(),
                     resolveRolesForCommunity(user, cid),
                     List.copyOf(flatsByCommunity.getOrDefault(cid, Set.of())),
-                    cid.equals(defaultCommunityId)
+                    cid.equals(defaultCommunityId),
+                    unit != null ? unit.flatId() : null,
+                    unit != null ? unit.towerId() : null,
+                    unit != null ? unit.towerBlock() : null
             ));
         }
         return List.copyOf(contexts);
@@ -303,6 +349,15 @@ public class CommunityMembershipService {
      */
     @Transactional(readOnly = true)
     public boolean isUserAuthorizedForProperty(AppUser user, Long flatId) {
+        return isUserAuthorizedForProperty(user, null, flatId);
+    }
+
+    /**
+     * Checks if the user has an active membership for the specified flat/property within
+     * {@code communityId} (when {@code communityId} is supplied).
+     */
+    @Transactional(readOnly = true)
+    public boolean isUserAuthorizedForProperty(AppUser user, Long communityId, Long flatId) {
         if (user == null || flatId == null) {
             return false;
         }
@@ -311,9 +366,141 @@ public class CommunityMembershipService {
             return true;
         }
 
+        var membershipOpt = flatMembershipRepository.findByUserIdAndFlatId(user.getId(), flatId)
+                .filter(fm -> !"REVOKED".equalsIgnoreCase(fm.getAppAccessStatus()));
+        if (membershipOpt.isEmpty()) {
+            return false;
+        }
+        if (communityId == null) {
+            return true;
+        }
+        var flat = membershipOpt.get().getFlat();
+        return flat == null || flat.getCommunity() == null || communityId.equals(flat.getCommunity().getId());
+    }
+
+    /**
+     * Checks if the user is authorized to scope requests to {@code towerId} inside {@code communityId}.
+     */
+    @Transactional(readOnly = true)
+    public boolean isUserAuthorizedForTower(AppUser user, Long communityId, Long towerId) {
+        if (user == null || communityId == null || towerId == null) {
+            return false;
+        }
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
+            return true;
+        }
+        List<String> scopedRoles = resolveRolesForCommunity(user, communityId);
+        if (scopedRoles.contains("ADMIN") || scopedRoles.contains("COMMUNITY_ADMIN")) {
+            return true;
+        }
+        if (user.getId() != null) {
+            List<FlatMembership> memberships = flatMembershipRepository.findByUserId(user.getId());
+            if (memberships != null) {
+                for (FlatMembership fm : memberships) {
+                    if (!"REVOKED".equalsIgnoreCase(fm.getAppAccessStatus())
+                            && fm.getFlat() != null
+                            && fm.getFlat().getCommunity() != null
+                            && communityId.equals(fm.getFlat().getCommunity().getId())) {
+                        Long flatTowerId = computeTowerId(communityId, fm.getFlat().getTowerBlock());
+                        if (towerId.equals(flatTowerId)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        String profileTower = (user.getTower() != null && !user.getTower().isBlank())
+                ? user.getTower()
+                : user.getBlock();
+        return towerId.equals(computeTowerId(communityId, profileTower));
+    }
+
+    /**
+     * Resolves the user's active unit context (community, canonical towerId, towerBlock, flatId, flatNumber)
+     * for {@code communityId}. Prefers the primary active {@link FlatMembership} in that community, then
+     * any active membership matching {@code user.getFlatNo()}, then falls back to profile tower/block.
+     */
+    @Transactional(readOnly = true)
+    public ResidentUnitContext resolveDefaultUnitContext(AppUser user, Long communityId) {
+        if (user == null || communityId == null) {
+            return null;
+        }
+        if (user.getId() != null) {
+            List<FlatMembership> memberships = flatMembershipRepository.findByUserId(user.getId());
+            if (memberships != null) {
+                FlatMembership primaryMatch = null;
+                FlatMembership flatNoMatch = null;
+                FlatMembership firstActive = null;
+
+                for (FlatMembership fm : memberships) {
+                    if ("REVOKED".equalsIgnoreCase(fm.getAppAccessStatus())
+                            || fm.getFlat() == null
+                            || fm.getFlat().getCommunity() == null
+                            || !communityId.equals(fm.getFlat().getCommunity().getId())) {
+                        continue;
+                    }
+                    if (firstActive == null) {
+                        firstActive = fm;
+                    }
+                    if (Boolean.TRUE.equals(fm.getIsPrimaryResident()) && primaryMatch == null) {
+                        primaryMatch = fm;
+                    }
+                    if (user.getFlatNo() != null
+                            && user.getFlatNo().equalsIgnoreCase(fm.getFlat().getFlatNumber())
+                            && flatNoMatch == null) {
+                        flatNoMatch = fm;
+                    }
+                }
+
+                FlatMembership chosen = primaryMatch != null ? primaryMatch : (flatNoMatch != null ? flatNoMatch : firstActive);
+                if (chosen != null) {
+                    var flat = chosen.getFlat();
+                    return new ResidentUnitContext(
+                            communityId,
+                            computeTowerId(communityId, flat.getTowerBlock()),
+                            flat.getTowerBlock(),
+                            flat.getId(),
+                            flat.getFlatNumber(),
+                            Boolean.TRUE.equals(chosen.getIsPrimaryResident())
+                    );
+                }
+            }
+        }
+
+        Long homeCid = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (communityId.equals(homeCid)) {
+            String towerBlock = (user.getTower() != null && !user.getTower().isBlank())
+                    ? user.getTower()
+                    : user.getBlock();
+            Long towerId = computeTowerId(communityId, towerBlock);
+            if (towerId != null || (user.getFlatNo() != null && !user.getFlatNo().isBlank())) {
+                return new ResidentUnitContext(communityId, towerId, towerBlock, null, user.getFlatNo(), true);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolves a specific flat's unit context if the user is authorized for it inside {@code communityId}.
+     */
+    @Transactional(readOnly = true)
+    public ResidentUnitContext resolveUnitContextForFlat(AppUser user, Long communityId, Long flatId) {
+        if (user == null || communityId == null || flatId == null || user.getId() == null) {
+            return null;
+        }
         return flatMembershipRepository.findByUserIdAndFlatId(user.getId(), flatId)
                 .filter(fm -> !"REVOKED".equalsIgnoreCase(fm.getAppAccessStatus()))
-                .isPresent();
+                .filter(fm -> fm.getFlat() != null && fm.getFlat().getCommunity() != null
+                        && communityId.equals(fm.getFlat().getCommunity().getId()))
+                .map(fm -> new ResidentUnitContext(
+                        communityId,
+                        computeTowerId(communityId, fm.getFlat().getTowerBlock()),
+                        fm.getFlat().getTowerBlock(),
+                        fm.getFlat().getId(),
+                        fm.getFlat().getFlatNumber(),
+                        Boolean.TRUE.equals(fm.getIsPrimaryResident())
+                ))
+                .orElse(null);
     }
 
     /**

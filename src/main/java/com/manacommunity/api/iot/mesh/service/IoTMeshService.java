@@ -53,7 +53,10 @@ public class IoTMeshService {
     @Autowired(required = false)
     private StringRedisTemplate redisTemplate;
 
-    private static final String LAST_READING_KEY_PREFIX = "iot:sensor:";
+    private static String sensorReadingKey(Long communityId, Long sensorId) {
+        String scope = communityId != null ? String.valueOf(communityId) : "global";
+        return "iot:comm:" + scope + ":sensor:" + sensorId + LAST_READING_KEY_SUFFIX;
+    }
     private static final String LAST_READING_KEY_SUFFIX = ":last-reading";
     private static final java.time.Duration LAST_READING_TTL = java.time.Duration.ofMinutes(10);
 
@@ -118,7 +121,7 @@ public class IoTMeshService {
         if (redisTemplate != null) {
             try {
                 redisTemplate.opsForValue().set(
-                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX,
+                        sensorReadingKey(sensor.getCommunityId(), sensorId),
                         value.toPlainString(),
                         LAST_READING_TTL
                 );
@@ -198,10 +201,11 @@ public class IoTMeshService {
     // ── Polling ───────────────────────────────────────────────────────────
 
     public BigDecimal pollSensor(Long sensorId) {
-        if (redisTemplate != null && sensorId != null) {
+        Long activeCommunityId = com.manacommunity.api.config.tenant.TenantContext.getCommunityId();
+        if (redisTemplate != null && sensorId != null && activeCommunityId != null) {
             try {
                 String cached = redisTemplate.opsForValue().get(
-                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX);
+                        sensorReadingKey(activeCommunityId, sensorId));
                 if (cached != null && !cached.isBlank()) {
                     return new BigDecimal(cached);
                 }
@@ -211,12 +215,16 @@ public class IoTMeshService {
         }
         IoTSensor sensor = sensorRepo.findById(sensorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found: " + sensorId));
+        if (activeCommunityId != null && !activeCommunityId.equals(sensor.getCommunityId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Sensor " + sensorId + " does not belong to active community " + activeCommunityId);
+        }
         // Stub: return last reading or 0
         BigDecimal value = sensor.getLastReading() != null ? sensor.getLastReading() : BigDecimal.ZERO;
         if (redisTemplate != null) {
             try {
                 redisTemplate.opsForValue().set(
-                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX,
+                        sensorReadingKey(sensor.getCommunityId(), sensorId),
                         value.toPlainString(),
                         LAST_READING_TTL
                 );

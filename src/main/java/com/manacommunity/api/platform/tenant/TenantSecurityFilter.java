@@ -28,6 +28,9 @@ import java.io.IOException;
 public class TenantSecurityFilter extends OncePerRequestFilter {
 
     private static final String COMMUNITY_ID_HEADER = "X-Community-ID";
+    private static final String TOWER_ID_HEADER = "X-Tower-Id";
+    private static final String FLAT_ID_HEADER = "X-Flat-Id";
+    private static final String PROPERTY_ID_HEADER = "X-Property-Id";
 
     @Autowired(required = false)
     private CommunityMembershipService membershipService;
@@ -46,6 +49,7 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
+        boolean boundLegacyTenantContext = false;
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -81,12 +85,77 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
             }
 
             if (activeCommunityId != null) {
-                TenantContextHolder.set(activeCommunityId);
+                Long activeFlatId = principal.getFlatId();
+                Long activeTowerId = principal.getTowerId();
+                AppUser resolvedUser = resolveUser(principal);
+
+                String flatHeader = request.getHeader(FLAT_ID_HEADER);
+                if (flatHeader == null || flatHeader.isBlank()) {
+                    flatHeader = request.getHeader(PROPERTY_ID_HEADER);
+                }
+                if (flatHeader != null && !flatHeader.isBlank()) {
+                    try {
+                        Long requestedFlatId = Long.parseLong(flatHeader.trim());
+                        boolean sameFlat = activeFlatId != null && activeFlatId.equals(requestedFlatId);
+                        boolean allowedFlat = sameFlat || (membershipService != null && resolvedUser != null
+                                && membershipService.isUserAuthorizedForProperty(resolvedUser, activeCommunityId, requestedFlatId));
+                        if (!allowedFlat) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"error\":\"Flat context mismatch\"," +
+                                    "\"detail\":\"Requested flat does not match your membership\"}");
+                            return;
+                        }
+                        activeFlatId = requestedFlatId;
+                    } catch (NumberFormatException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"Invalid X-Flat-Id header value\"}");
+                        return;
+                    }
+                }
+
+                String towerHeader = request.getHeader(TOWER_ID_HEADER);
+                if (towerHeader != null && !towerHeader.isBlank()) {
+                    try {
+                        Long requestedTowerId = Long.parseLong(towerHeader.trim());
+                        boolean sameTower = activeTowerId != null && activeTowerId.equals(requestedTowerId);
+                        boolean allowedTower = sameTower || (membershipService != null && resolvedUser != null
+                                && membershipService.isUserAuthorizedForTower(resolvedUser, activeCommunityId, requestedTowerId));
+                        if (!allowedTower) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"error\":\"Tower context mismatch\"," +
+                                    "\"detail\":\"Requested tower does not match your membership\"}");
+                            return;
+                        }
+                        activeTowerId = requestedTowerId;
+                    } catch (NumberFormatException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"Invalid X-Tower-Id header value\"}");
+                        return;
+                    }
+                }
+
+                TenantContextHolder.setContext(activeCommunityId, activeTowerId, activeFlatId, principal.getId());
+                if (!com.manacommunity.api.config.tenant.TenantContext.isSet()) {
+                    Long orgId = resolvedUser != null ? resolvedUser.getOrganizationId() : null;
+                    com.manacommunity.api.config.tenant.TenantContext.setTenant(orgId, activeCommunityId);
+                    com.manacommunity.api.config.tenant.TenantContext.setUnitContext(
+                            activeTowerId, null, activeFlatId, principal.getId());
+                    boundLegacyTenantContext = true;
+                }
             }
 
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
+            if (boundLegacyTenantContext) {
+                com.manacommunity.api.config.tenant.TenantContext.clear();
+            }
         }
     }
 
@@ -94,10 +163,15 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
         if (membershipService == null || requestedCommunityId == null) {
             return false;
         }
+        AppUser user = resolveUser(principal);
+        return user != null && membershipService.isUserAuthorizedForCommunity(user, requestedCommunityId);
+    }
+
+    private AppUser resolveUser(UserPrincipal principal) {
         AppUser user = principal.getUser();
         if (user == null && userRepository != null && principal.getId() != null) {
             user = userRepository.findById(principal.getId()).orElse(null);
         }
-        return user != null && membershipService.isUserAuthorizedForCommunity(user, requestedCommunityId);
+        return user;
     }
 }

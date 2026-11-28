@@ -10,6 +10,14 @@ mana:
   business:
     # Set to the contracted payout SLA in calendar days. Zero leaves overdue counts unavailable.
     vendor-settlement-sla-days: ${MANA_BUSINESS_VENDOR_SETTLEMENT_SLA_DAYS:0}
+  capacity:
+    request-bulkhead:
+      # Per-instance concurrent request caps; keep their sum below the Tomcat thread budget.
+      sports-max-concurrent: ${MANA_CAPACITY_SPORTS_MAX_CONCURRENT:32}
+      finance-max-concurrent: ${MANA_CAPACITY_FINANCE_MAX_CONCURRENT:48}
+      visitor-max-concurrent: ${MANA_CAPACITY_VISITOR_MAX_CONCURRENT:48}
+      other-max-concurrent: ${MANA_CAPACITY_OTHER_MAX_CONCURRENT:48}
+      reserved-tomcat-threads: ${MANA_CAPACITY_RESERVED_TOMCAT_THREADS:16}
   # ── Mana platform secrets (field encryption + KYC ID pepper) ────────────
   # Both default to EMPTY on purpose. The fail-fast / fail-closed logic in the
   # code keys off "not set", so never commit a value here — set the environment

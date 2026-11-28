@@ -39,10 +39,16 @@ public class SportsDashboardCacheService {
     }
 
     public List<UpcomingEvent> getUpcomingEvents(Long userId, Supplier<List<UpcomingEvent>> dbLoader) {
+        return getUpcomingEvents(userId, com.manacommunity.api.config.tenant.TenantContext.getCommunityId(), dbLoader);
+    }
+
+    public List<UpcomingEvent> getUpcomingEvents(Long userId, Long communityId, Supplier<List<UpcomingEvent>> dbLoader) {
         if (redisTemplate == null || userId == null) {
             return dbLoader.get();
         }
-        String cacheKey = KEY_PREFIX + currentVersion() + ":user:" + userId + ":upcoming-events";
+        String cacheKey = communityId != null
+                ? (KEY_PREFIX + currentVersion() + ":comm:" + communityId + ":user:" + userId + ":upcoming-events")
+                : (KEY_PREFIX + currentVersion() + ":user:" + userId + ":upcoming-events");
         try {
             String cachedJson = redisTemplate.opsForValue().get(cacheKey);
             if (cachedJson != null && !cachedJson.isBlank()) {

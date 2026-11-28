@@ -111,7 +111,7 @@ class MultiCommunityPersonaAndSwitchTest {
         jwtAuthenticationFilter.setCommunityMembershipService(membershipService);
 
         authController = new MultiCommunityAuthController(
-                userRepository, membershipService, jwtTokenProvider,
+                userRepository, communityRepository, membershipService, jwtTokenProvider,
                 rolePermissionService, communityModuleRepository, cookieAuthHelper);
 
         commA = Community.builder().id(101L).name("Palm Meadows (A)").organizationId(1L).build();
@@ -240,7 +240,9 @@ class MultiCommunityPersonaAndSwitchTest {
 
         assertThat(switchedToB).isNotNull();
         assertThat(switchedToB.getCommunityId()).isEqualTo(202L);
-        assertThat(switchedToB.getRoles()).containsExactlyInAnyOrder("TENANT", "RESIDENT");
+        assertThat(switchedToB.getRoles())
+                .containsExactlyInAnyOrder("USER", "TENANT", "RESIDENT")
+                .doesNotContain("OWNER", "VENDOR");
         assertThat(jwtTokenProvider.getCommunityId(switchedToB.getToken())).isEqualTo(202L);
 
         // Authenticate subsequent request with switched JWT -> SecurityContext has ROLE_TENANT (no ROLE_OWNER!)

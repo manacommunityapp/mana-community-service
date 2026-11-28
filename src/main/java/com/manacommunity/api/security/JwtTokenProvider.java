@@ -95,27 +95,39 @@ public class JwtTokenProvider {
     /** Mints a signed, short-lived <b>access</b> token with explicit permissions. */
     public String generateToken(AppUser user, List<String> permissions) {
         Long defaultCommunity = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        return build(user, TYPE_ACCESS, expirationMs, permissions, defaultCommunity, null);
+        return build(user, TYPE_ACCESS, expirationMs, permissions, defaultCommunity, null, null, null);
     }
 
     /** Mints a signed, short-lived <b>access</b> token scoped to a specific community and persona roles. */
     public String generateTokenForCommunity(AppUser user, Long communityId, List<String> scopedRoles, List<String> permissions) {
-        return build(user, TYPE_ACCESS, expirationMs, permissions, communityId, scopedRoles);
+        return build(user, TYPE_ACCESS, expirationMs, permissions, communityId, null, null, scopedRoles);
+    }
+
+    /** Mints a signed, short-lived <b>access</b> token scoped to community, tower, flat, and persona roles. */
+    public String generateTokenForContext(AppUser user, Long communityId, Long towerId, Long flatId,
+                                          List<String> scopedRoles, List<String> permissions) {
+        return build(user, TYPE_ACCESS, expirationMs, permissions, communityId, towerId, flatId, scopedRoles);
     }
 
     /** Mints a signed, long-lived <b>refresh</b> token (exchanged at {@code /api/auth/refresh}). */
     public String generateRefreshToken(AppUser user) {
         Long defaultCommunity = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        return build(user, TYPE_REFRESH, refreshExpirationMs, null, defaultCommunity, null);
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null, defaultCommunity, null, null, null);
     }
 
     /** Mints a community-scoped refresh token. */
     public String generateRefreshTokenForCommunity(AppUser user, Long communityId, List<String> scopedRoles) {
-        return build(user, TYPE_REFRESH, refreshExpirationMs, null, communityId, scopedRoles);
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null, communityId, null, null, scopedRoles);
+    }
+
+    /** Mints a unit-scoped refresh token carrying community, tower, and flat context. */
+    public String generateRefreshTokenForContext(AppUser user, Long communityId, Long towerId, Long flatId,
+                                                 List<String> scopedRoles) {
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null, communityId, towerId, flatId, scopedRoles);
     }
 
     private String build(AppUser user, String type, long ttlMs, List<String> permissions,
-                         Long overrideCommunityId, List<String> overrideRoles) {
+                         Long overrideCommunityId, Long towerId, Long flatId, List<String> overrideRoles) {
         Instant now = Instant.now();
 
         List<String> rolesList;
@@ -156,6 +168,12 @@ public class JwtTokenProvider {
 
         if (communityId != null) {
             builder.claim("communityId", communityId);
+        }
+        if (towerId != null) {
+            builder.claim("towerId", towerId);
+        }
+        if (flatId != null) {
+            builder.claim("flatId", flatId);
         }
 
         if (permissions != null && !permissions.isEmpty()) {
@@ -211,6 +229,18 @@ public class JwtTokenProvider {
     public Long getCommunityId(String token) {
         Object cid = parse(token).getPayload().get("communityId");
         return cid instanceof Number n ? n.longValue() : null;
+    }
+
+    /** The tower ID if present in claims, or null. */
+    public Long getTowerId(String token) {
+        Object tid = parse(token).getPayload().get("towerId");
+        return tid instanceof Number n ? n.longValue() : null;
+    }
+
+    /** The flat ID if present in claims, or null. */
+    public Long getFlatId(String token) {
+        Object fid = parse(token).getPayload().get("flatId");
+        return fid instanceof Number n ? n.longValue() : null;
     }
 
     public String getEmail(String token) {

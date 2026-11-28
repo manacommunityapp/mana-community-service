@@ -1,7 +1,9 @@
 package com.manacommunity.api.config.tenant;
 
 import com.manacommunity.api.security.CommunityMembershipService;
+import com.manacommunity.api.security.CorrelationIdFilter;
 import com.manacommunity.api.security.SecurityErrorWriter;
+import org.slf4j.MDC;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -50,6 +52,7 @@ public class TenantFilter extends OncePerRequestFilter {
     public static final String ORG_HEADER = "X-Organization-Id";
     public static final String COMMUNITY_HEADER = "X-Community-Id";
     public static final String LEGACY_TENANT_HEADER = "X-Tenant-ID";
+    public static final String TOWER_HEADER = "X-Tower-Id";
     public static final String PROPERTY_HEADER = "X-Property-Id";
     public static final String FLAT_HEADER = "X-Flat-Id";
 
@@ -89,6 +92,7 @@ public class TenantFilter extends OncePerRequestFilter {
                 }
             }
 
+            Long requestedTowerId = parseLongHeader(request, TOWER_HEADER);
             Long requestedPropertyId = parseLongHeader(request, PROPERTY_HEADER);
             if (requestedPropertyId == null) {
                 requestedPropertyId = parseLongHeader(request, FLAT_HEADER);
@@ -98,20 +102,37 @@ public class TenantFilter extends OncePerRequestFilter {
             Long resolvedOrgId = null;
             Long resolvedUserId = null;
             Long resolvedPropertyId = null;
+            Long resolvedTowerId = null;
+            String resolvedTowerBlock = null;
 
             if (authenticatedUser != null) {
                 resolvedUserId = authenticatedUser.getId();
+                UserPrincipal userPrincipal = auth.getPrincipal() instanceof UserPrincipal up ? up : null;
+                boolean isSuperAdmin = auth.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
 
                 // 1. Authorize requested community against server-side memberships
                 if (requestedCommunityId != null) {
-                    if (membershipService != null && !membershipService.isUserAuthorizedForCommunity(authenticatedUser, requestedCommunityId)) {
-                        log.warn("Access denied: user {} is not authorized for requested community {}",
-                                authenticatedUser.getId(), requestedCommunityId);
-                        sendForbidden(request, response, "TENANT_ACCESS_DENIED",
-                                "User is not authorized for the requested community: " + requestedCommunityId);
-                        return;
+                    if (membershipService != null) {
+                        if (!membershipService.isUserAuthorizedForCommunity(authenticatedUser, requestedCommunityId)) {
+                            log.warn("Access denied: user {} is not authorized for requested community {}",
+                                    authenticatedUser.getId(), requestedCommunityId);
+                            sendForbidden(request, response, "TENANT_ACCESS_DENIED",
+                                    "User is not authorized for the requested community: " + requestedCommunityId);
+                            return;
+                        }
+                        resolvedCommunityId = requestedCommunityId;
+                    } else if (isSuperAdmin) {
+                        resolvedCommunityId = requestedCommunityId;
+                    } else {
+                        resolvedCommunityId = authenticatedUser.getCommunity() != null
+                                ? authenticatedUser.getCommunity().getId()
+                                : (userPrincipal != null ? userPrincipal.getCommunityId() : null);
+                        if (resolvedCommunityId != null && !resolvedCommunityId.equals(requestedCommunityId)) {
+                            log.warn("Discarded unauthorized community header {} for user {} (principal community={})",
+                                    requestedCommunityId, authenticatedUser.getId(), resolvedCommunityId);
+                        }
                     }
-                    resolvedCommunityId = requestedCommunityId;
                 } else {
                     // Default to user's assigned community
                     resolvedCommunityId = membershipService != null
@@ -119,7 +140,7 @@ public class TenantFilter extends OncePerRequestFilter {
                             : (authenticatedUser.getCommunity() != null ? authenticatedUser.getCommunity().getId() : null);
                 }
 
-                // 2. Authorize requested property/flat if specified
+                // 2. Authorize requested property/flat if specified, else resolve active flat from principal/membership
                 if (requestedPropertyId != null) {
                     if (membershipService != null && !membershipService.isUserAuthorizedForProperty(authenticatedUser, requestedPropertyId)) {
                         log.warn("Access denied: user {} is not authorized for requested property {}",
@@ -129,9 +150,44 @@ public class TenantFilter extends OncePerRequestFilter {
                         return;
                     }
                     resolvedPropertyId = requestedPropertyId;
+                } else if (userPrincipal != null && userPrincipal.getFlatId() != null) {
+                    resolvedPropertyId = userPrincipal.getFlatId();
                 }
 
-                // 3. Resolve organization ID from community and user
+                // 3. Resolve & authorize tower context (header > unit lookup > principal > profile)
+                if (requestedTowerId != null) {
+                    if (membershipService != null
+                            && !membershipService.isUserAuthorizedForTower(authenticatedUser, resolvedCommunityId, requestedTowerId)) {
+                        log.warn("Access denied: user {} is not authorized for requested tower {} in community {}",
+                                authenticatedUser.getId(), requestedTowerId, resolvedCommunityId);
+                        sendForbidden(request, response, "TOWER_ACCESS_DENIED",
+                                "User is not authorized for the requested tower: " + requestedTowerId);
+                        return;
+                    }
+                    resolvedTowerId = requestedTowerId;
+                } else if (userPrincipal != null && userPrincipal.getTowerId() != null) {
+                    resolvedTowerId = userPrincipal.getTowerId();
+                }
+
+                if (membershipService != null && resolvedCommunityId != null) {
+                    var unit = resolvedPropertyId != null
+                            ? membershipService.resolveUnitContextForFlat(authenticatedUser, resolvedCommunityId, resolvedPropertyId)
+                            : membershipService.resolveDefaultUnitContext(authenticatedUser, resolvedCommunityId);
+                    if (unit != null) {
+                        if (resolvedPropertyId == null) resolvedPropertyId = unit.flatId();
+                        if (resolvedTowerId == null) resolvedTowerId = unit.towerId();
+                        resolvedTowerBlock = unit.towerBlock();
+                    }
+                }
+                if (resolvedTowerId == null && resolvedCommunityId != null) {
+                    String profileTower = (authenticatedUser.getTower() != null && !authenticatedUser.getTower().isBlank())
+                            ? authenticatedUser.getTower()
+                            : authenticatedUser.getBlock();
+                    resolvedTowerBlock = profileTower;
+                    resolvedTowerId = CommunityMembershipService.computeTowerId(resolvedCommunityId, profileTower);
+                }
+
+                // 4. Resolve organization ID from community and user
                 resolvedOrgId = membershipService != null
                         ? membershipService.resolveOrganizationId(resolvedCommunityId, authenticatedUser)
                         : (authenticatedUser.getOrganizationId() != null ? authenticatedUser.getOrganizationId() : TenantContext.DEFAULT_ORG_ID);
@@ -140,22 +196,40 @@ public class TenantFilter extends OncePerRequestFilter {
                 // Unauthenticated request (public endpoints, webhooks, registration lookup)
                 Long orgHeader = parseLongHeader(request, ORG_HEADER);
                 resolvedOrgId = orgHeader != null ? orgHeader : TenantContext.DEFAULT_ORG_ID;
-                resolvedCommunityId = requestedCommunityId;
+                resolvedCommunityId = null;
             }
 
             TenantContext ctx = TenantContext.builder()
                     .organizationId(resolvedOrgId != null ? resolvedOrgId : TenantContext.DEFAULT_ORG_ID)
                     .communityId(resolvedCommunityId)
-                    .userId(resolvedUserId)
+                    .towerId(resolvedTowerId)
+                    .towerBlock(resolvedTowerBlock)
+                    .flatId(resolvedPropertyId)
                     .propertyId(resolvedPropertyId)
+                    .userId(resolvedUserId)
                     .build();
             TenantContext.setContext(ctx);
+            bindMdc(resolvedUserId, resolvedCommunityId, resolvedTowerId, resolvedPropertyId);
 
             filterChain.doFilter(request, response);
 
         } finally {
+            clearMdc();
             TenantContext.clear();
         }
+    }
+
+    private void bindMdc(Long userId, Long communityId, Long towerId, Long flatId) {
+        if (userId != null) MDC.put(CorrelationIdFilter.MDC_USER_ID, String.valueOf(userId));
+        if (communityId != null) MDC.put(CorrelationIdFilter.MDC_COMMUNITY_ID, String.valueOf(communityId));
+        if (towerId != null) MDC.put(CorrelationIdFilter.MDC_TOWER_ID, String.valueOf(towerId));
+        if (flatId != null) MDC.put(CorrelationIdFilter.MDC_FLAT_ID, String.valueOf(flatId));
+    }
+
+    private void clearMdc() {
+        MDC.remove(CorrelationIdFilter.MDC_COMMUNITY_ID);
+        MDC.remove(CorrelationIdFilter.MDC_TOWER_ID);
+        MDC.remove(CorrelationIdFilter.MDC_FLAT_ID);
     }
 
     private AppUser resolveAuthenticatedUser(Authentication auth) {

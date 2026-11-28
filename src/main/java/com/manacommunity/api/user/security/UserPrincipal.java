@@ -24,29 +24,42 @@ public class UserPrincipal implements UserDetails {
     private final String password;
     private final AppUser user;
     private final Long activeCommunityId;
+    private final Long activeTowerId;
+    private final Long activeFlatId;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities) {
-        this(id, email, password, authorities, null, null);
+        this(id, email, password, authorities, null, null, null, null);
     }
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities,
                          AppUser user) {
-        this(id, email, password, authorities, user, null);
+        this(id, email, password, authorities, user, null, null, null);
     }
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities,
                          AppUser user,
                          Long activeCommunityId) {
+        this(id, email, password, authorities, user, activeCommunityId, null, null);
+    }
+
+    public UserPrincipal(Long id, String email, String password,
+                         Collection<? extends GrantedAuthority> authorities,
+                         AppUser user,
+                         Long activeCommunityId,
+                         Long activeTowerId,
+                         Long activeFlatId) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
         this.user = user;
         this.activeCommunityId = activeCommunityId;
+        this.activeTowerId = activeTowerId;
+        this.activeFlatId = activeFlatId;
     }
 
     public Long getId() { return id; }
@@ -59,6 +72,9 @@ public class UserPrincipal implements UserDetails {
         }
         return user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
     }
+
+    public Long getTowerId() { return activeTowerId; }
+    public Long getFlatId() { return activeFlatId; }
 
     @Override public String getUsername() { return email; }
     @Override public String getPassword() { return password; }

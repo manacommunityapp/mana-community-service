@@ -43,9 +43,26 @@ public class SportsLiveScoreCacheService {
         this.objectMapper = objectMapper;
     }
 
+    private static String tenantPrefix() {
+        Long communityId = com.manacommunity.api.config.tenant.TenantContext.getCommunityId();
+        return communityId != null ? ("comm:" + communityId + ":") : "";
+    }
+
+    private static String buildLiveKey(Long matchId) {
+        return tenantPrefix() + KEY_PREFIX + matchId + LIVE_SUFFIX;
+    }
+
+    private static String buildGenericLiveKey(Long matchId) {
+        return tenantPrefix() + KEY_PREFIX + "generic:" + matchId + LIVE_SUFFIX;
+    }
+
+    private static String buildSeqKey(Long matchId) {
+        return tenantPrefix() + KEY_PREFIX + matchId + SEQ_SUFFIX;
+    }
+
     public SportsLiveMatchStateResponse getLiveSnapshot(Long matchId, Supplier<SportsLiveMatchStateResponse> dbLoader) {
         if (matchId == null) return null;
-        String cacheKey = KEY_PREFIX + matchId + LIVE_SUFFIX;
+        String cacheKey = buildLiveKey(matchId);
 
         if (redisTemplate != null) {
             try {
@@ -69,7 +86,7 @@ public class SportsLiveScoreCacheService {
 
     public void setLiveSnapshot(Long matchId, SportsLiveMatchStateResponse snapshot) {
         if (matchId == null || snapshot == null) return;
-        String cacheKey = KEY_PREFIX + matchId + LIVE_SUFFIX;
+        String cacheKey = buildLiveKey(matchId);
 
         if (redisTemplate != null) {
             try {
@@ -84,7 +101,7 @@ public class SportsLiveScoreCacheService {
 
     public long getNextSequence(Long matchId) {
         if (matchId == null) return 1L;
-        String seqKey = KEY_PREFIX + matchId + SEQ_SUFFIX;
+        String seqKey = buildSeqKey(matchId);
 
         if (redisTemplate != null) {
             try {
@@ -131,8 +148,8 @@ public class SportsLiveScoreCacheService {
 
     public void invalidate(Long matchId) {
         if (matchId == null) return;
-        String cacheKey = KEY_PREFIX + matchId + LIVE_SUFFIX;
-        String genericCacheKey = KEY_PREFIX + "generic:" + matchId + LIVE_SUFFIX;
+        String cacheKey = buildLiveKey(matchId);
+        String genericCacheKey = buildGenericLiveKey(matchId);
         if (redisTemplate != null) {
             try {
                 redisTemplate.delete(cacheKey);
@@ -155,7 +172,7 @@ public class SportsLiveScoreCacheService {
 
         if (redisTemplate != null) {
             try {
-                String seqKey = KEY_PREFIX + matchId + SEQ_SUFFIX;
+                String seqKey = buildSeqKey(matchId);
                 if (Boolean.TRUE.equals(redisTemplate.hasKey(seqKey))) {
                     redisTemplate.expire(seqKey, CACHE_TTL);
                 }
@@ -168,7 +185,7 @@ public class SportsLiveScoreCacheService {
 
     public SportsGenericMatchStateResponse getGenericLiveSnapshot(Long matchId, Supplier<SportsGenericMatchStateResponse> dbLoader) {
         if (matchId == null) return null;
-        String cacheKey = KEY_PREFIX + "generic:" + matchId + LIVE_SUFFIX;
+        String cacheKey = buildGenericLiveKey(matchId);
 
         if (redisTemplate != null) {
             try {
@@ -192,7 +209,7 @@ public class SportsLiveScoreCacheService {
 
     public void setGenericLiveSnapshot(Long matchId, SportsGenericMatchStateResponse snapshot) {
         if (matchId == null || snapshot == null) return;
-        String cacheKey = KEY_PREFIX + "generic:" + matchId + LIVE_SUFFIX;
+        String cacheKey = buildGenericLiveKey(matchId);
 
         if (redisTemplate != null) {
             try {
@@ -207,7 +224,7 @@ public class SportsLiveScoreCacheService {
 
     public void invalidateGeneric(Long matchId) {
         if (matchId == null) return;
-        String cacheKey = KEY_PREFIX + "generic:" + matchId + LIVE_SUFFIX;
+        String cacheKey = buildGenericLiveKey(matchId);
         if (redisTemplate != null) {
             try {
                 redisTemplate.delete(cacheKey);

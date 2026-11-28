@@ -155,8 +155,12 @@ public class SecurityConfig { // BUG FIX: was package-private
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList(
                 "Authorization", "Content-Type", "X-Requested-With", "Accept",
-                "X-Idempotency-Key", "X-XSRF-TOKEN", "X-Community-ID",
-                "X-Correlation-Id", "X-Correlation-ID", "X-Platform",
+                "X-Idempotency-Key", "X-XSRF-TOKEN",
+                "X-Community-ID", "X-Organization-Id", "X-Tenant-ID",
+                "X-Tower-Id", "X-Flat-Id", "X-Property-Id", "X-User-Id",
+                "X-Correlation-Id", "X-Correlation-ID", "X-Request-Id",
+                "X-Platform", "X-App-Version", "X-Network-Type",
+                "X-Trace-Id", "X-Anonymized-Society-ID",
                 "traceparent", "tracestate", "baggage"
         ));
         config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie", "X-Correlation-Id", "traceparent"));

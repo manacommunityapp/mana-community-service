@@ -11,8 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class DirectoryPrivacyEngineImpl implements DirectoryPrivacyEngine {
 
-    // Fast in-memory cache simulating L1 Caffeine / Redis cache for user privacy settings
-    private final Map<Long, UserPrivacyMatrix> privacyCache = new ConcurrentHashMap<>();
+    // Fast in-memory cache simulating L1 Caffeine / Redis cache keyed by communityId + userId
+    private final Map<String, UserPrivacyMatrix> privacyCache = new ConcurrentHashMap<>();
 
     private static final UserPrivacyMatrix DEFAULT_MATRIX = UserPrivacyMatrix.builder()
             .phoneScope(VisibilityScope.VERIFIED_OWNERS_ONLY)
@@ -21,10 +21,14 @@ public class DirectoryPrivacyEngineImpl implements DirectoryPrivacyEngine {
             .emailScope(VisibilityScope.HIDDEN_COMPLETELY)
             .build();
 
+    private static String cacheKey(Long communityId, Long userId) {
+        return (communityId != null ? communityId : 0L) + "#" + userId;
+    }
+
     @Override
     public void registerPrivacyMatrix(UserPrivacyMatrix matrix) {
         if (matrix != null && matrix.getUserId() != null) {
-            privacyCache.put(matrix.getUserId(), matrix);
+            privacyCache.put(cacheKey(matrix.getCommunityId(), matrix.getUserId()), matrix);
         }
     }
 
@@ -50,7 +54,8 @@ public class DirectoryPrivacyEngineImpl implements DirectoryPrivacyEngine {
                     .build();
         }
 
-        UserPrivacyMatrix matrix = privacyCache.getOrDefault(target.getUserId(), DEFAULT_MATRIX);
+        UserPrivacyMatrix matrix = privacyCache.getOrDefault(
+                cacheKey(target.getCommunityId(), target.getUserId()), DEFAULT_MATRIX);
 
         // 1. Phone Number Resolution
         boolean canViewPhone = canViewField(viewer, target, matrix.getPhoneScope());

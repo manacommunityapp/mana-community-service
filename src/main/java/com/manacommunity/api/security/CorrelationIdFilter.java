@@ -36,6 +36,9 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     public static final String TRACEPARENT_HEADER = "traceparent";
     public static final String MDC_CORRELATION_ID = "correlationId";
     public static final String MDC_USER_ID = "userId";
+    public static final String MDC_COMMUNITY_ID = "communityId";
+    public static final String MDC_TOWER_ID = "towerId";
+    public static final String MDC_FLAT_ID = "flatId";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -56,6 +59,9 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         } finally {
             MDC.remove(MDC_CORRELATION_ID);
             MDC.remove(MDC_USER_ID);
+            MDC.remove(MDC_COMMUNITY_ID);
+            MDC.remove(MDC_TOWER_ID);
+            MDC.remove(MDC_FLAT_ID);
         }
     }
 

@@ -55,6 +55,9 @@ public class UserController {
     private final UserPrivacySettingsService userPrivacySettingsService;
     private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.security.CommunityMembershipService communityMembershipService;
+
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
             return java.util.Collections.emptyList();
@@ -83,8 +86,13 @@ public class UserController {
     }
 
     private java.util.List<String> getEnabledModules(AppUser user) {
-        if (user.getCommunity() != null) {
-            return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+        return getEnabledModules(user, null);
+    }
+
+    private java.util.List<String> getEnabledModules(AppUser user, Long activeCommunityId) {
+        Long commId = activeCommunityId != null ? activeCommunityId : (user.getCommunity() != null ? user.getCommunity().getId() : null);
+        if (commId != null) {
+            return communityModuleService.getEnabledModuleKeys(commId);
         }
         if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
@@ -97,7 +105,12 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getLoggedInUserDetails(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(toUserResponse(user));
+        UserResponse response = toUserResponse(user);
+        if (principal != null && principal.getCommunityId() != null) {
+            response.setCommunityId(principal.getCommunityId());
+            response.setEnabledModules(getEnabledModules(user, principal.getCommunityId()));
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/search")
@@ -327,6 +340,33 @@ public class UserController {
             govtIdNumber = null;
         }
 
+        Long activeCommunityId = com.manacommunity.api.config.tenant.TenantContext.getCommunityId();
+        Long resolvedCommunityId = activeCommunityId != null
+                ? activeCommunityId
+                : (u.getCommunity() != null ? u.getCommunity().getId() : null);
+        Long activeFlatId = com.manacommunity.api.config.tenant.TenantContext.getFlatId();
+        Long activeTowerId = com.manacommunity.api.config.tenant.TenantContext.getTowerId();
+        String activeTowerBlock = com.manacommunity.api.config.tenant.TenantContext.getTowerBlock();
+        String activeFlatNo = u.getFlatNo();
+
+        if (isSelfOrAdmin && communityMembershipService != null && resolvedCommunityId != null) {
+            var unit = activeFlatId != null
+                    ? communityMembershipService.resolveUnitContextForFlat(u, resolvedCommunityId, activeFlatId)
+                    : communityMembershipService.resolveDefaultUnitContext(u, resolvedCommunityId);
+            if (unit != null) {
+                if (activeFlatId == null) activeFlatId = unit.flatId();
+                if (activeTowerId == null) activeTowerId = unit.towerId();
+                if (activeTowerBlock == null) activeTowerBlock = unit.towerBlock();
+                if (unit.flatNumber() != null) activeFlatNo = unit.flatNumber();
+            }
+        }
+        if (activeTowerId == null && resolvedCommunityId != null) {
+            String fallbackTower = activeTowerBlock != null ? activeTowerBlock
+                    : (u.getTower() != null && !u.getTower().isBlank() ? u.getTower() : u.getBlock());
+            activeTowerId = com.manacommunity.api.security.CommunityMembershipService.computeTowerId(
+                    resolvedCommunityId, fallbackTower);
+        }
+
         return UserResponse.builder()
                 .id(u.getId())
                 .fullName(u.getFullName())
@@ -338,13 +378,15 @@ public class UserController {
                 .profilePicUrl(u.getProfilePicUrl())
                 .gender(u.getGender())
                 .dateOfBirth(dob)
-                .flatNo(u.getFlatNo())
+                .flatNo(activeFlatNo)
                 .block(u.getBlock())
-                .tower(u.getTower())
+                .tower(activeTowerBlock != null ? activeTowerBlock : u.getTower())
                 .employeeId(isSelfOrAdmin ? u.getEmployeeId() : null)
                 .govtIdType(govtIdType)
                 .govtIdNumber(govtIdNumber)
-                .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
+                .communityId(resolvedCommunityId)
+                .towerId(activeTowerId)
+                .flatId(activeFlatId)
                 .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
                 .isActive(u.getIsActive())
                 .occupancyStatus(u.getOccupancyStatus())

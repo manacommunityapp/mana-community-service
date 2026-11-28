@@ -146,16 +146,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         Long tokenCommunityId = rawJwtToken != null ? jwtTokenProvider.getCommunityId(rawJwtToken) : null;
-        setAuthentication(user, request, tokenCommunityId);
+        Long tokenTowerId = rawJwtToken != null ? jwtTokenProvider.getTowerId(rawJwtToken) : null;
+        Long tokenFlatId = rawJwtToken != null ? jwtTokenProvider.getFlatId(rawJwtToken) : null;
+        setAuthentication(user, request, tokenCommunityId, tokenTowerId, tokenFlatId);
     }
 
     private void setAuthentication(AppUser user, HttpServletRequest request) {
-        setAuthentication(user, request, null);
+        setAuthentication(user, request, null, null, null);
     }
 
     private void setAuthentication(AppUser user, HttpServletRequest request, Long tokenCommunityId) {
-        Long requestedHeaderCommunityId = parseRequestedCommunityHeader(request);
+        setAuthentication(user, request, tokenCommunityId, null, null);
+    }
+
+    private void setAuthentication(AppUser user, HttpServletRequest request,
+                                   Long tokenCommunityId, Long tokenTowerId, Long tokenFlatId) {
+        Long requestedHeaderCommunityId = parseLongHeader(request, "X-Community-ID", "X-Community-Id");
         Long activeCommunityId = resolveActiveCommunityId(user, requestedHeaderCommunityId, tokenCommunityId);
+        Long requestedHeaderFlatId = parseLongHeader(request, "X-Flat-Id", "X-Property-Id");
+        Long requestedHeaderTowerId = parseLongHeader(request, "X-Tower-Id", "X-Tower-ID");
+
+        Long activeFlatId = resolveActiveFlatId(user, activeCommunityId, requestedHeaderFlatId, tokenFlatId);
+        Long activeTowerId = resolveActiveTowerId(user, activeCommunityId, requestedHeaderTowerId, tokenTowerId, activeFlatId);
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
@@ -181,7 +193,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         UserPrincipal principal = new UserPrincipal(
-                user.getId(), user.getEmail(), user.getPasswordHash(), authorities, user, activeCommunityId);
+                user.getId(), user.getEmail(), user.getPasswordHash(),
+                authorities, user, activeCommunityId, activeTowerId, activeFlatId);
 
         UsernamePasswordAuthenticationToken authToken =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
@@ -189,18 +202,73 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authToken);
 
         org.slf4j.MDC.put(CorrelationIdFilter.MDC_USER_ID, String.valueOf(user.getId()));
+        if (activeCommunityId != null) {
+            org.slf4j.MDC.put(CorrelationIdFilter.MDC_COMMUNITY_ID, String.valueOf(activeCommunityId));
+        }
+        if (activeTowerId != null) {
+            org.slf4j.MDC.put(CorrelationIdFilter.MDC_TOWER_ID, String.valueOf(activeTowerId));
+        }
+        if (activeFlatId != null) {
+            org.slf4j.MDC.put(CorrelationIdFilter.MDC_FLAT_ID, String.valueOf(activeFlatId));
+        }
     }
 
-    private Long parseRequestedCommunityHeader(HttpServletRequest request) {
-        if (request == null) return null;
-        String headerVal = request.getHeader("X-Community-ID");
-        if (headerVal == null || headerVal.isBlank()) {
-            headerVal = request.getHeader("X-Community-Id");
+    private Long parseLongHeader(HttpServletRequest request, String... headerNames) {
+        if (request == null || headerNames == null) return null;
+        for (String name : headerNames) {
+            String headerVal = request.getHeader(name);
+            if (headerVal != null && !headerVal.isBlank()) {
+                try {
+                    return Long.parseLong(headerVal.trim());
+                } catch (NumberFormatException ignored) {}
+            }
         }
-        if (headerVal != null && !headerVal.isBlank()) {
-            try {
-                return Long.parseLong(headerVal.trim());
-            } catch (NumberFormatException ignored) {}
+        return null;
+    }
+
+    private Long resolveActiveFlatId(AppUser user, Long activeCommunityId, Long headerFlatId, Long tokenFlatId) {
+        if (headerFlatId != null && communityMembershipService != null
+                && communityMembershipService.isUserAuthorizedForProperty(user, headerFlatId)) {
+            return headerFlatId;
+        }
+        if (tokenFlatId != null && (communityMembershipService == null
+                || communityMembershipService.isUserAuthorizedForProperty(user, tokenFlatId))) {
+            return tokenFlatId;
+        }
+        if (communityMembershipService != null && activeCommunityId != null) {
+            var unit = communityMembershipService.resolveDefaultUnitContext(user, activeCommunityId);
+            if (unit != null) {
+                return unit.flatId();
+            }
+        }
+        return null;
+    }
+
+    private Long resolveActiveTowerId(AppUser user, Long activeCommunityId,
+                                      Long headerTowerId, Long tokenTowerId, Long activeFlatId) {
+        if (headerTowerId != null && communityMembershipService != null
+                && communityMembershipService.isUserAuthorizedForTower(user, activeCommunityId, headerTowerId)) {
+            return headerTowerId;
+        }
+        if (tokenTowerId != null) {
+            return tokenTowerId;
+        }
+        if (communityMembershipService != null && activeCommunityId != null) {
+            var unit = activeFlatId != null
+                    ? communityMembershipService.resolveUnitContextForFlat(user, activeCommunityId, activeFlatId)
+                    : null;
+            if (unit == null) {
+                unit = communityMembershipService.resolveDefaultUnitContext(user, activeCommunityId);
+            }
+            if (unit != null && unit.towerId() != null) {
+                return unit.towerId();
+            }
+        }
+        if (activeCommunityId != null) {
+            String fallbackTower = (user.getTower() != null && !user.getTower().isBlank())
+                    ? user.getTower()
+                    : user.getBlock();
+            return CommunityMembershipService.computeTowerId(activeCommunityId, fallbackTower);
         }
         return null;
     }

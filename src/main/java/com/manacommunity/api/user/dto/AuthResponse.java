@@ -15,6 +15,11 @@ public class AuthResponse {
     private List<String> roles;
     private List<String> permissions;
     private Long communityId;
+    private Long towerId;
+    private Long flatId;
+    private String tower;
+    private String block;
+    private String flatNo;
     private java.time.LocalDate dateOfBirth;
     private java.util.List<String> enabledModules;
     private String occupancyStatus;
@@ -82,6 +87,21 @@ public class AuthResponse {
 
     public Long getCommunityId() { return communityId; }
     public void setCommunityId(Long communityId) { this.communityId = communityId; }
+
+    public Long getTowerId() { return towerId; }
+    public void setTowerId(Long towerId) { this.towerId = towerId; }
+
+    public Long getFlatId() { return flatId; }
+    public void setFlatId(Long flatId) { this.flatId = flatId; }
+
+    public String getTower() { return tower; }
+    public void setTower(String tower) { this.tower = tower; }
+
+    public String getBlock() { return block; }
+    public void setBlock(String block) { this.block = block; }
+
+    public String getFlatNo() { return flatNo; }
+    public void setFlatNo(String flatNo) { this.flatNo = flatNo; }
 
     public java.time.LocalDate getDateOfBirth() { return dateOfBirth; }
     public void setDateOfBirth(java.time.LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
