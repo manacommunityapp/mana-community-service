@@ -1,6 +1,11 @@
 package com.manacommunity.api.unit;
 
+import com.manacommunity.api.delivery.model.ResidentDeliveryPreference;
+import com.manacommunity.api.delivery.repository.ResidentDeliveryPreferenceRepository;
+import com.manacommunity.api.delivery.service.OverstaySlaEngineService;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.parcel.entity.ParcelRecord;
+import com.manacommunity.api.parcel.service.ParcelService;
 import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.platform.outbox.DomainEventPublisher;
 import com.manacommunity.api.privacy.PiiMaskingService;
@@ -376,5 +381,122 @@ class VisitorPassServiceTest {
 
         assertThat(service.isResidentAuthorizedForPass(coResident, pass)).isTrue();
         assertThat(service.isResidentAuthorizedForPass(neighbor, pass)).isFalse();
+    }
+
+    @Test
+    @DisplayName("leaveAtGate transitions to LEAVE_AT_GATE and provisions ParcelRecord with 24h pickup OTP")
+    void leaveAtGate_createsParcelRecordWithOtpAndNotifiesResident() {
+        ParcelService parcelService = mock(ParcelService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "parcelService", parcelService);
+
+        VisitorPass pending = VisitorPass.builder()
+                .id(601L)
+                .passCode("DELIV601")
+                .visitorName("Amazon Courier")
+                .flatNumber("A-101")
+                .passType(PassType.DELIVERY)
+                .status(PassStatus.PENDING)
+                .resident(resident)
+                .community(community)
+                .build();
+
+        when(repo.findById(601L)).thenReturn(Optional.of(pending));
+        when(repo.compareAndSwapStatus(eq(601L), eq(PassStatus.PENDING), eq(PassStatus.LEAVE_AT_GATE), any()))
+                .thenReturn(1);
+        when(parcelService.receiveParcelWithOtp(eq(1L), eq("A-101"), eq(10L), eq("Amazon Courier"), eq("DELIV601"), eq(10L), isNull()))
+                .thenReturn(ParcelRecord.builder()
+                        .id(88L)
+                        .communityId(1L)
+                        .flatNo("A-101")
+                        .collectionOtp("739201")
+                        .status("AWAITING_PICKUP")
+                        .build());
+
+        VisitorPassResponse resp = service.leaveAtGate(601L, resident);
+
+        assertThat(resp.getStatus()).isEqualTo("LEAVE_AT_GATE");
+        assertThat(resp.getParcelRecordId()).isEqualTo(88L);
+        assertThat(resp.getParcelCollectionOtp()).isEqualTo("739201");
+        verify(notificationService).createNotification(eq(10L), any(), any(), eq("Parcel Left at Gate Desk"),
+                contains("739201"), any(), any(), eq(601L), any(), any(), eq(1L));
+    }
+
+    @Test
+    @DisplayName("createWalkIn honors defaultLeaveAtGate preference and denyPass transitions to DENIED")
+    void createWalkIn_defaultLeaveAtGate_and_denyPassTransitionsToDenied() {
+        ResidentDeliveryPreferenceRepository prefRepo = mock(ResidentDeliveryPreferenceRepository.class);
+        ParcelService parcelService = mock(ParcelService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "deliveryPreferenceRepo", prefRepo);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "parcelService", parcelService);
+
+        when(userRepo.findByCommunityIdAndFlatNoQuery(1L, "A-101")).thenReturn(List.of(resident));
+        when(prefRepo.findByCommunityIdAndFlatNumber(1L, "A-101"))
+                .thenReturn(Optional.of(ResidentDeliveryPreference.builder()
+                        .communityId(1L).flatNumber("A-101").defaultLeaveAtGate(true).build()));
+        when(repo.save(any(VisitorPass.class))).thenAnswer(inv -> {
+            VisitorPass p = inv.getArgument(0);
+            p.setId(602L);
+            return p;
+        });
+        when(repo.findById(602L)).thenAnswer(inv -> Optional.of(VisitorPass.builder()
+                .id(602L).passCode("DELIV602").visitorName("Blinkit Rider").flatNumber("A-101")
+                .passType(PassType.DELIVERY).status(PassStatus.PENDING).resident(resident).community(community).build()));
+        when(repo.compareAndSwapStatus(eq(602L), eq(PassStatus.PENDING), eq(PassStatus.LEAVE_AT_GATE), any()))
+                .thenReturn(1);
+        when(parcelService.receiveParcelWithOtp(eq(1L), eq("A-101"), eq(10L), eq("Blinkit Rider"), eq("DELIV602"), eq(10L), isNull()))
+                .thenReturn(ParcelRecord.builder().id(89L).collectionOtp("551199").build());
+
+        VisitorPassRequest req = new VisitorPassRequest();
+        req.setVisitorName("Blinkit Rider");
+        req.setFlatNumber("A-101");
+        req.setPassType("DELIVERY");
+        req.setIdempotencyKey("walkin-auto-lag");
+
+        VisitorPassResponse autoResp = service.createWalkIn(req, guard, community);
+        assertThat(autoResp.getStatus()).isEqualTo("LEAVE_AT_GATE");
+        assertThat(autoResp.getParcelCollectionOtp()).isEqualTo("551199");
+        assertThat(autoResp.getOtpOnCreation()).isNotBlank();
+
+        VisitorPass pendingWalkIn = VisitorPass.builder()
+                .id(603L).passCode("WALK603").visitorName("Unwanted Sales").flatNumber("A-101")
+                .status(PassStatus.PENDING).resident(resident).community(community).build();
+        when(repo.findById(603L)).thenReturn(Optional.of(pendingWalkIn));
+        when(repo.compareAndSwapStatus(eq(603L), eq(PassStatus.PENDING), eq(PassStatus.DENIED), any()))
+                .thenReturn(1);
+
+        VisitorPassResponse denied = service.denyPass(603L, "Asha Resident");
+        assertThat(denied.getStatus()).isEqualTo("DENIED");
+    }
+
+    @Test
+    @DisplayName("verifyDeliveryOtp locks after 5 failed attempts and autoDetectOverstays triggers SLA alerts")
+    void verifyDeliveryOtp_lockout_and_overstayAlert() {
+        OverstaySlaEngineService slaEngine = new OverstaySlaEngineService();
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "overstaySlaEngineService", slaEngine);
+
+        VisitorPass deliveryPending = VisitorPass.builder()
+                .id(701L).passCode("OTP701").flatNumber("A-101").passType(PassType.DELIVERY)
+                .status(PassStatus.PENDING).otpAttempts(4).resident(resident).community(community).build();
+        when(repo.findByOtpHash(anyString())).thenReturn(Optional.empty());
+        when(repo.findByCommunityIdAndStatusOrderByCreatedAtDesc(1L, PassStatus.PENDING))
+                .thenReturn(List.of(deliveryPending));
+        when(repo.save(any(VisitorPass.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> service.verifyDeliveryOtp("A-101", "000000", guard, community))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked after 5 failed attempts");
+        assertThat(deliveryPending.getOtpAttempts()).isEqualTo(5);
+
+        VisitorPass overstayedCourier = VisitorPass.builder()
+                .id(702L).passCode("OVER702").visitorName("Zomato Rider").flatNumber("A-101")
+                .passType(PassType.DELIVERY).status(PassStatus.CHECKED_IN)
+                .checkedInAt(LocalDateTime.now().minusMinutes(60))
+                .resident(resident).community(community).build();
+        when(repo.findAll()).thenReturn(List.of(overstayedCourier));
+        when(repo.findById(702L)).thenReturn(Optional.of(overstayedCourier));
+
+        service.autoDetectOverstays();
+        verify(notificationService).createNotification(eq(10L), any(), any(), eq("Visitor Overstay Alert"),
+                contains("45-min SLA"), any(), any(), eq(702L), any(), any(), eq(1L));
     }
 }

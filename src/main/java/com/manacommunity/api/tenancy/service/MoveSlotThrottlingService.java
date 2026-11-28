@@ -164,7 +164,7 @@ public class MoveSlotThrottlingService {
                     startTime.isBefore(s.getEndTime()) && startTime.plusHours(SLOT_DURATION_HOURS).isAfter(s.getStartTime()));
             if (!conflict) return elevator;
         }
-        return elevators.get(0) + "-OVERFLOW";
+        throw new IllegalStateException("All freight elevators for " + tower + " are booked during " + startTime);
     }
 
     private List<String> getAvailableElevators(String tower, LocalDate date) {

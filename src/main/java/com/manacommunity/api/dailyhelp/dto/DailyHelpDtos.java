@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -74,5 +75,46 @@ public class DailyHelpDtos {
         private BigDecimal aggregateRating;
         private int totalReviews;
         private List<String> affiliatedCommunities;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StaffGateScanRequest {
+        private Long communityId;
+        private String staffUuid;
+        private String gateName;
+        private LocalDateTime eventTimestamp;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StaffGateScanResultDto {
+        private String staffUuid;
+        private String displayName;
+        private String primaryCategory;
+        private String localBadgeId;
+        private String gateState;
+        private LocalDateTime eventTimestamp;
+        private int notifiedResidentsCount;
+        private List<Long> notifiedFlatIds;
+        private List<FlatAttendanceReconciliationDto> reconciledSessions;
+        private String message;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MultiSocietyAffiliationRequest {
+        private String staffUuid;
+        private String displayName;
+        private String primaryCategory;
+        private String rawPhone;
+        private Long communityId;
+        private String localBadgeId;
     }
 }

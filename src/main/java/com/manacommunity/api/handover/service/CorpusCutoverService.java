@@ -42,6 +42,9 @@ public class CorpusCutoverService {
                 .mapToDouble(CorpusFundTransaction::getNetAmount).sum();
         double escrowReleased = all.stream().filter(t -> t.getType() == TransactionType.ESCROW_RELEASE)
                 .mapToDouble(CorpusFundTransaction::getNetAmount).sum();
+        double gstInputCreditCarryover = all.stream()
+                .filter(t -> t.getStatus() == TransactionStatus.VERIFIED && t.getGstAmount() > 0)
+                .mapToDouble(CorpusFundTransaction::getGstAmount).sum();
 
         int verified = (int) all.stream().filter(t -> t.getStatus() == TransactionStatus.VERIFIED).count();
         int disputed = (int) all.stream().filter(t -> t.getStatus() == TransactionStatus.DISPUTED).count();
@@ -67,6 +70,7 @@ public class CorpusCutoverService {
                 .disputedVouchers(disputed)
                 .pendingVouchers(pending)
                 .openingBalanceRwa(openingBalance)
+                .gstInputCreditCarryover(gstInputCreditCarryover)
                 .builderSignatoryName(builderName)
                 .builderSignatoryDesignation("Project Director")
                 .totalFlats(totalFlats)

@@ -24,6 +24,10 @@ import com.manacommunity.api.sports.dto.SportsTournamentResponse;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
 import com.manacommunity.api.sports.dto.SportsBatchStatusRequest;
 import com.manacommunity.api.sports.dto.SportsBatchDeleteRequest;
+import com.manacommunity.api.sports.dto.SportsMultiUnregisterRequest;
+import com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse;
+import com.manacommunity.api.sports.dto.SportsMultiRegisterRequest;
+import com.manacommunity.api.sports.dto.SportsMultiRegisterResponse;
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
@@ -622,6 +626,39 @@ public class SportsController {
         boolean admin = isSportsAdminOrAdmin(principal);
         eventService.withdraw(registrationId, ctx.userId(), admin, reason);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/unregister-multi")
+    public ResponseEntity<SportsMultiUnregisterResponse> batchWithdraw(
+            @RequestBody SportsMultiUnregisterRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Batch withdrawing registrations count={}", req.getRegistrationIds() != null ? req.getRegistrationIds().size() : 0);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean admin = isSportsAdminOrAdmin(principal);
+        return ResponseEntity.ok(eventService.batchWithdraw(req.getRegistrationIds(), ctx.userId(), admin, req.getReason()));
+    }
+
+    @PostMapping("/register-multi")
+    public ResponseEntity<SportsMultiRegisterResponse> batchRegister(
+            @RequestBody SportsMultiRegisterRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Batch registering count={}", req.getRegistrations() != null ? req.getRegistrations().size() : 0);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean admin = isSportsAdminOrAdmin(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventService.batchRegister(req.getRegistrations(), ctx.userId(), admin));
+    }
+
+    @GetMapping("/events/{eventId}/registration-status")
+    public ResponseEntity<List<SportsRegistrationResponse>> getMyRegistrationStatus(
+            @PathVariable Long eventId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.ok(eventService.getMyRegistrationsForEvent(eventId, ctx.userId()).stream()
+                .map(this::toRegistrationResponse).toList());
     }
 
     @PostMapping({"/events/{eventId}/registrations/import", "/tournaments/{eventId}/registrations/import"})

@@ -4,17 +4,31 @@ import com.manacommunity.api.dailyhelp.dto.DailyHelpDtos.*;
 import com.manacommunity.api.dailyhelp.entity.*;
 import com.manacommunity.api.dailyhelp.repository.DailyHelpRepositories.*;
 import com.manacommunity.api.dailyhelp.service.DailyHelpAttendanceService;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.NotificationCategory;
+import com.manacommunity.api.model.NotificationPriority;
+import com.manacommunity.api.model.NotificationType;
+import com.manacommunity.api.model.ReferenceType;
+import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.service.NotificationManagementService;
+import com.manacommunity.api.staff.service.StaffAccessRuleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -26,6 +40,15 @@ public class DailyHelpAttendanceServiceImpl implements DailyHelpAttendanceServic
     private final FlatStaffContractRepository contractRepo;
     private final FlatAttendanceSessionRepository attendanceRepo;
     private final StaffMonthlySalaryLedgerRepository salaryRepo;
+
+    @Autowired(required = false)
+    private NotificationManagementService notificationService;
+
+    @Autowired(required = false)
+    private StaffAccessRuleService accessRuleService;
+
+    @Autowired(required = false)
+    private CommunityRepository communityRepo;
 
     @Override
     @Transactional
@@ -242,5 +265,243 @@ public class DailyHelpAttendanceServiceImpl implements DailyHelpAttendanceServic
                 .totalReviews(staff.getRatingSampleSize())
                 .affiliatedCommunities(communityNames)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public StaffGateScanResultDto recordGateEntry(StaffGateScanRequest request) {
+        if (request.getCommunityId() == null || request.getStaffUuid() == null || request.getStaffUuid().isBlank()) {
+            throw new InvalidInputException("communityId and staffUuid are required");
+        }
+        LocalDateTime eventTs = request.getEventTimestamp() != null ? request.getEventTimestamp() : LocalDateTime.now();
+        String gateName = request.getGateName() != null && !request.getGateName().isBlank() ? request.getGateName() : "Main Gate";
+
+        SocietyStaffAffiliation affiliation = affiliationRepo
+                .findByCommunityIdAndStaffProfile_StaffUuid(request.getCommunityId(), request.getStaffUuid())
+                .orElseThrow(() -> new ResourceNotFoundException("Staff affiliation not found: " + request.getStaffUuid()));
+
+        if (!"ACTIVE".equalsIgnoreCase(affiliation.getStatus())) {
+            throw new UnauthorizedActionException("Staff affiliation is not ACTIVE: " + affiliation.getStatus());
+        }
+        if ("IN".equalsIgnoreCase(affiliation.getCurrentGateState())) {
+            throw new InvalidInputException("Staff is already checked IN at society gate");
+        }
+        if (accessRuleService != null) {
+            String day = eventTs.getDayOfWeek().name();
+            if (!accessRuleService.isAccessAllowed(affiliation.getId(), day, eventTs.toLocalTime())) {
+                throw new UnauthorizedActionException("Gate entry outside allowed staff curfew hours");
+            }
+        }
+
+        affiliation.setCurrentGateState("IN");
+        affiliation.setLastGateEventAt(eventTs);
+        affiliationRepo.save(affiliation);
+
+        GlobalStaffProfile profile = affiliation.getStaffProfile();
+        List<FlatStaffContract> contracts = contractRepo
+                .findByCommunityIdAndAffiliation_StaffProfile_StaffUuidAndIsActiveTrue(
+                        request.getCommunityId(), request.getStaffUuid());
+
+        int dayOfWeekBit = 1 << (eventTs.getDayOfWeek().getValue() - 1);
+        Set<Long> notifiedUsers = new LinkedHashSet<>();
+        List<Long> notifiedFlatIds = new ArrayList<>();
+        String timeStr = eventTs.format(DateTimeFormatter.ofPattern("hh:mm a"));
+
+        for (FlatStaffContract contract : contracts) {
+            if ((contract.getDaysOfWeekMask() & dayOfWeekBit) == 0) {
+                continue;
+            }
+            notifiedFlatIds.add(contract.getFlatId());
+            if (contract.getResident() != null && contract.getResident().getId() != null
+                    && notifiedUsers.add(contract.getResident().getId()) && notificationService != null) {
+                try {
+                    notificationService.createNotification(
+                            contract.getResident().getId(),
+                            NotificationType.VISITOR_CHECK_IN,
+                            NotificationCategory.COMMUNITY,
+                            "Daily Help Arrived",
+                            String.format("%s (%s, Badge %s) entered %s at %s.",
+                                    profile.getDisplayName(),
+                                    contract.getServiceType(),
+                                    affiliation.getLocalBadgeId(),
+                                    gateName,
+                                    timeStr),
+                            "/daily-help",
+                            ReferenceType.COMMUNITY,
+                            affiliation.getId(),
+                            NotificationPriority.NORMAL,
+                            null,
+                            request.getCommunityId()
+                    );
+                } catch (Exception ex) {
+                    log.warn("Failed to notify resident {} of daily help entry: {}", contract.getResident().getId(), ex.getMessage());
+                }
+            }
+        }
+
+        return StaffGateScanResultDto.builder()
+                .staffUuid(profile.getStaffUuid())
+                .displayName(profile.getDisplayName())
+                .primaryCategory(profile.getPrimaryCategory())
+                .localBadgeId(affiliation.getLocalBadgeId())
+                .gateState("IN")
+                .eventTimestamp(eventTs)
+                .notifiedResidentsCount(notifiedUsers.size())
+                .notifiedFlatIds(notifiedFlatIds)
+                .reconciledSessions(List.of())
+                .message(String.format("%s checked IN at %s; notified %d contracted household(s)",
+                        profile.getDisplayName(), gateName, notifiedUsers.size()))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public StaffGateScanResultDto recordGateExit(StaffGateScanRequest request) {
+        if (request.getCommunityId() == null || request.getStaffUuid() == null || request.getStaffUuid().isBlank()) {
+            throw new InvalidInputException("communityId and staffUuid are required");
+        }
+        LocalDateTime exitTs = request.getEventTimestamp() != null ? request.getEventTimestamp() : LocalDateTime.now();
+        String gateName = request.getGateName() != null && !request.getGateName().isBlank() ? request.getGateName() : "Main Gate";
+
+        SocietyStaffAffiliation affiliation = affiliationRepo
+                .findByCommunityIdAndStaffProfile_StaffUuid(request.getCommunityId(), request.getStaffUuid())
+                .orElseThrow(() -> new ResourceNotFoundException("Staff affiliation not found: " + request.getStaffUuid()));
+
+        if ("OUT".equalsIgnoreCase(affiliation.getCurrentGateState())) {
+            throw new InvalidInputException("Staff is already checked OUT of society gate");
+        }
+
+        LocalDateTime entryTs = affiliation.getLastGateEventAt() != null
+                ? affiliation.getLastGateEventAt()
+                : exitTs.minusMinutes(60);
+        LocalTime entryTime = entryTs.toLocalDate().equals(exitTs.toLocalDate())
+                ? entryTs.toLocalTime()
+                : LocalTime.MIN;
+
+        affiliation.setCurrentGateState("OUT");
+        affiliation.setLastGateEventAt(exitTs);
+        affiliationRepo.save(affiliation);
+
+        List<FlatAttendanceReconciliationDto> reconciled = reconcileGateDwellSession(GateDwellIntervalDto.builder()
+                .communityId(request.getCommunityId())
+                .staffUuid(request.getStaffUuid())
+                .workDate(exitTs.toLocalDate())
+                .gateEntryTime(entryTime)
+                .gateExitTime(exitTs.toLocalTime())
+                .build());
+
+        List<FlatStaffContract> contracts = contractRepo
+                .findByCommunityIdAndAffiliation_StaffProfile_StaffUuidAndIsActiveTrue(
+                        request.getCommunityId(), request.getStaffUuid());
+        int dayOfWeekBit = 1 << (exitTs.getDayOfWeek().getValue() - 1);
+        Set<Long> notifiedUsers = new LinkedHashSet<>();
+        List<Long> notifiedFlatIds = new ArrayList<>();
+        String timeStr = exitTs.format(DateTimeFormatter.ofPattern("hh:mm a"));
+        GlobalStaffProfile profile = affiliation.getStaffProfile();
+
+        for (FlatStaffContract contract : contracts) {
+            if ((contract.getDaysOfWeekMask() & dayOfWeekBit) == 0) {
+                continue;
+            }
+            notifiedFlatIds.add(contract.getFlatId());
+            if (contract.getResident() != null && contract.getResident().getId() != null
+                    && notifiedUsers.add(contract.getResident().getId()) && notificationService != null) {
+                try {
+                    notificationService.createNotification(
+                            contract.getResident().getId(),
+                            NotificationType.VISITOR_CHECK_OUT,
+                            NotificationCategory.COMMUNITY,
+                            "Daily Help Exited",
+                            String.format("%s exited %s at %s.",
+                                    profile.getDisplayName(), gateName, timeStr),
+                            "/daily-help",
+                            ReferenceType.COMMUNITY,
+                            affiliation.getId(),
+                            NotificationPriority.NORMAL,
+                            null,
+                            request.getCommunityId()
+                    );
+                } catch (Exception ex) {
+                    log.warn("Failed to notify resident {} of daily help exit: {}", contract.getResident().getId(), ex.getMessage());
+                }
+            }
+        }
+
+        return StaffGateScanResultDto.builder()
+                .staffUuid(profile.getStaffUuid())
+                .displayName(profile.getDisplayName())
+                .primaryCategory(profile.getPrimaryCategory())
+                .localBadgeId(affiliation.getLocalBadgeId())
+                .gateState("OUT")
+                .eventTimestamp(exitTs)
+                .notifiedResidentsCount(notifiedUsers.size())
+                .notifiedFlatIds(notifiedFlatIds)
+                .reconciledSessions(reconciled)
+                .message(String.format("%s checked OUT at %s; reconciled %d flat attendance record(s)",
+                        profile.getDisplayName(), gateName, reconciled.size()))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CrossSocietyStaffProfileDto registerMultiSocietyWorker(MultiSocietyAffiliationRequest request) {
+        if (request.getCommunityId() == null || request.getRawPhone() == null || request.getRawPhone().isBlank()) {
+            throw new InvalidInputException("communityId and rawPhone are required");
+        }
+        String normalizedPhone = request.getRawPhone().replaceAll("[^0-9]", "");
+        if (normalizedPhone.length() < 6) {
+            throw new InvalidInputException("Valid phone number is required");
+        }
+        String phoneHash = sha256Hex(normalizedPhone);
+        String maskedPhone = "+91 " + normalizedPhone.substring(0, 2)
+                + "****" + normalizedPhone.substring(normalizedPhone.length() - 4);
+
+        GlobalStaffProfile profile = staffProfileRepo.findByPhoneHash(phoneHash)
+                .orElseGet(() -> {
+                    String uuid = request.getStaffUuid() != null && !request.getStaffUuid().isBlank()
+                            ? request.getStaffUuid()
+                            : "staff-" + UUID.randomUUID().toString().substring(0, 8);
+                    return staffProfileRepo.save(GlobalStaffProfile.builder()
+                            .staffUuid(uuid)
+                            .phoneHash(phoneHash)
+                            .maskedPhone(maskedPhone)
+                            .displayName(request.getDisplayName() != null ? request.getDisplayName() : "Daily Help")
+                            .primaryCategory(request.getPrimaryCategory() != null ? request.getPrimaryCategory() : "MAID")
+                            .build());
+                });
+
+        affiliationRepo.findByCommunityIdAndStaffProfile_Id(request.getCommunityId(), profile.getId())
+                .orElseGet(() -> {
+                    Community comm = communityRepo != null
+                            ? communityRepo.findById(request.getCommunityId())
+                            .orElseGet(() -> Community.builder().id(request.getCommunityId()).name("Society-" + request.getCommunityId()).build())
+                            : Community.builder().id(request.getCommunityId()).name("Society-" + request.getCommunityId()).build();
+                    String badge = request.getLocalBadgeId() != null && !request.getLocalBadgeId().isBlank()
+                            ? request.getLocalBadgeId()
+                            : "DH-" + request.getCommunityId() + "-" + profile.getId();
+                    return affiliationRepo.save(SocietyStaffAffiliation.builder()
+                            .community(comm)
+                            .staffProfile(profile)
+                            .localBadgeId(badge)
+                            .currentGateState("OUT")
+                            .status("ACTIVE")
+                            .build());
+                });
+
+        return getPublicCrossSocietyProfile(profile.getStaffUuid());
+    }
+
+    private String sha256Hex(String value) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = md.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : bytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 }

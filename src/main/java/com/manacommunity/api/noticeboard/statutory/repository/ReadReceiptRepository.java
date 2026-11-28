@@ -6,12 +6,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReadReceiptRepository extends JpaRepository<ReadReceipt, Long> {
     List<ReadReceipt> findByNoticeId(Long noticeId);
     List<ReadReceipt> findByNoticeIdAndBeaconStatus(Long noticeId, ReadReceipt.BeaconStatus status);
     List<ReadReceipt> findByFlatNumberAndTowerName(String flat, String tower);
+    Optional<ReadReceipt> findByBeaconTrackingId(String beaconTrackingId);
 
     @Query("SELECT r.beaconStatus, COUNT(r) FROM ReadReceipt r WHERE r.noticeId = :noticeId GROUP BY r.beaconStatus")
     List<Object[]> countByStatusForNotice(Long noticeId);

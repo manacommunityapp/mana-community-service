@@ -122,6 +122,33 @@ public class OfflineSmartLockPinService {
     }
 
     /**
+     * Simulates lock-firmware offline verification with bounded RTC clock-drift tolerance
+     * across 15-minute bucket boundaries (default e.g. ±120 seconds).
+     */
+    public OfflineVerificationResult verifyOnOfflineLockFirmwareWithDrift(
+            String masterSecretHex,
+            Long deviceId,
+            String candidatePin,
+            Instant lockClockTime,
+            long maxDriftSeconds,
+            Set<String> firmwareSpentDigests
+    ) {
+        Instant base = lockClockTime != null ? lockClockTime : Instant.now();
+        OfflineVerificationResult exact = verifyOnOfflineLockFirmware(
+                masterSecretHex, deviceId, candidatePin, base, firmwareSpentDigests);
+        if (exact.valid() || "SINGLE_USE_PIN_ALREADY_BURNED".equals(exact.reason()) || maxDriftSeconds <= 0) {
+            return exact;
+        }
+        OfflineVerificationResult minusDrift = verifyOnOfflineLockFirmware(
+                masterSecretHex, deviceId, candidatePin, base.minusSeconds(maxDriftSeconds), firmwareSpentDigests);
+        if (minusDrift.valid() || "SINGLE_USE_PIN_ALREADY_BURNED".equals(minusDrift.reason())) {
+            return minusDrift;
+        }
+        return verifyOnOfflineLockFirmware(
+                masterSecretHex, deviceId, candidatePin, base.plusSeconds(maxDriftSeconds), firmwareSpentDigests);
+    }
+
+    /**
      * Simulates exact lock-firmware offline verification (zero DB OTP lookup required).
      * Firmware iterates valid candidate slot anchors covering checkTime and burns single-use digests.
      */

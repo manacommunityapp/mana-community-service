@@ -10,11 +10,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "market_seller_profiles", indexes = {
-    @Index(name = "idx_mkt_seller_comm", columnList = "community_id"),
-    @Index(name = "idx_mkt_seller_kyc", columnList = "kyc_status"),
-    @Index(name = "idx_mkt_seller_user", columnList = "user_id")
-})
+@Table(name = "market_seller_profiles",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_mkt_seller_user_comm", columnNames = {"user_id", "community_id"})
+    },
+    indexes = {
+        @Index(name = "idx_mkt_seller_comm", columnList = "community_id"),
+        @Index(name = "idx_mkt_seller_kyc", columnList = "kyc_status"),
+        @Index(name = "idx_mkt_seller_user", columnList = "user_id")
+    }
+)
 @Getter
 @Setter
 @Builder
@@ -26,8 +31,8 @@ public class MarketSellerProfile extends BaseAuditEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
     @Column(name = "business_name", nullable = false, length = 150)

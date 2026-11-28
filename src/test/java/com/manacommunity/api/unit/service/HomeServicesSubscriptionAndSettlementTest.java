@@ -103,11 +103,20 @@ class HomeServicesSubscriptionAndSettlementTest {
         assertThat(manifest.orderedStops().get(0).getFlatNumber()).isEqualTo("A-804");
         assertThat(manifest.orderedStops().get(1).getFlatNumber()).isEqualTo("B-201");
 
-        // 3. Sweep unmarked instances at 09:30 AM -> AUTO_REFUNDED
+        // 3. Direct vendor mark OUT_OF_STOCK triggers instant AUTO_REFUNDED on item 2
+        MorningDeliveryInstance secondStop = manifest.orderedStops().get(1);
+        when(instanceRepo.findById(secondStop.getId())).thenReturn(Optional.of(secondStop));
+        when(instanceRepo.save(any(MorningDeliveryInstance.class))).thenAnswer(inv -> inv.getArgument(0));
+        MorningDeliveryInstance oosResult = morningEngine.settleDeliveryOutcome(
+                secondStop.getId(), false, "OUT_OF_STOCK: Morning batch exhausted");
+        assertThat(oosResult.getDeliveryStatus()).isEqualTo("OUT_OF_STOCK");
+        assertThat(oosResult.getWalletStatus()).isEqualTo("AUTO_REFUNDED");
+
+        // 4. Sweep remaining unmarked instance at 09:30 AM -> AUTO_REFUNDED
         when(instanceRepo.findByDeliveryDateAndDeliveryStatus(tomorrow, "FROZEN_FOR_DISPATCH"))
                 .thenReturn(savedInstances.stream().filter(i -> "FROZEN_FOR_DISPATCH".equals(i.getDeliveryStatus())).toList());
         int refunded = morningEngine.sweepUnmarkedToAutoRefund(tomorrow);
-        assertThat(refunded).isEqualTo(2);
+        assertThat(refunded).isEqualTo(1);
         assertThat(savedInstances.get(0).getWalletStatus()).isEqualTo("AUTO_REFUNDED");
     }
 

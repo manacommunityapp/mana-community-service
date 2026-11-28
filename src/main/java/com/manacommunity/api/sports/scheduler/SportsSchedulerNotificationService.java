@@ -96,8 +96,12 @@ public class SportsSchedulerNotificationService {
             log.warn("Push notification delivery failed for tournament '{}': {}", config.getTournamentName(), e.getMessage());
         }
 
-        // TODO: Re-enable schedule-published emails once SMTP is configured for non-OTP templates.
-        // scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);
+        int matchCount = matchRepo.findByConfigId(config.getId()).size();
+        try {
+            scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);
+        } catch (Exception e) {
+            log.warn("Schedule-published email notification failed for tournament '{}': {}", config.getTournamentName(), e.getMessage());
+        }
 
         log.info("Notified {} participants that schedule for '{}' was published",
             recipients.size(), config.getTournamentName());

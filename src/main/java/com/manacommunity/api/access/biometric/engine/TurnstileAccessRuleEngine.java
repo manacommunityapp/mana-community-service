@@ -16,12 +16,22 @@ import java.util.Optional;
 public class TurnstileAccessRuleEngine {
 
     private static final BigDecimal MIN_MATCH_CONFIDENCE = new BigDecimal("0.80");
+    private static final BigDecimal MIN_LIVENESS_SCORE = new BigDecimal("0.75");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     public RuleEvaluation evaluate(
             BiometricTurnstile turnstile,
             Optional<BiometricUserEnrollment> enrollmentOpt,
             BigDecimal confidenceScore,
+            LocalDateTime checkTime) {
+        return evaluate(turnstile, enrollmentOpt, confidenceScore, null, checkTime);
+    }
+
+    public RuleEvaluation evaluate(
+            BiometricTurnstile turnstile,
+            Optional<BiometricUserEnrollment> enrollmentOpt,
+            BigDecimal confidenceScore,
+            BigDecimal livenessScore,
             LocalDateTime checkTime) {
 
         // 1. Turnstile status check (Lockdown mode)
@@ -33,7 +43,13 @@ public class TurnstileAccessRuleEngine {
             return new RuleEvaluation(AccessDecision.DENIED_LOCKDOWN, false, "Turnstile is in security lockdown");
         }
 
-        // 2. Confidence check
+        // 2. Anti-spoofing liveness check (reject printed photos / phone screen replays)
+        if (livenessScore != null && livenessScore.compareTo(MIN_LIVENESS_SCORE) < 0) {
+            return new RuleEvaluation(AccessDecision.DENIED_UNENROLLED, false,
+                    "Anti-spoofing liveness failed (" + livenessScore + " < " + MIN_LIVENESS_SCORE + ")");
+        }
+
+        // 3. Confidence check
         if (confidenceScore == null || confidenceScore.compareTo(MIN_MATCH_CONFIDENCE) < 0) {
             return new RuleEvaluation(AccessDecision.DENIED_UNENROLLED, false, "Low match confidence: " + confidenceScore);
         }

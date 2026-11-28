@@ -79,4 +79,12 @@ public interface SportsEventService {
     SportsEventRegistration setRegistrationSeed(Long registrationId, Integer seed);
     List<SportsEvent> batchUpdateStatus(List<Long> eventIds, String status);
     void batchDeleteEvents(List<Long> eventIds);
+
+    com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse batchWithdraw(
+            List<Long> registrationIds, Long userId, boolean admin, String reason);
+
+    com.manacommunity.api.sports.dto.SportsMultiRegisterResponse batchRegister(
+            List<RegistrationRequest> registrations, Long userId, boolean admin);
+
+    List<SportsEventRegistration> getMyRegistrationsForEvent(Long eventId, Long userId);
 }

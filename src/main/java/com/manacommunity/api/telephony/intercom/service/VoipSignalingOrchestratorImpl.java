@@ -125,6 +125,15 @@ public class VoipSignalingOrchestratorImpl implements VoipSignalingOrchestrator 
         if (session != null) {
             synchronized (session) {
                 session.setState(CallSessionDto.State.TERMINATED);
+                if (session.getForkedDevices() != null) {
+                    for (ForkedDeviceDto dev : session.getForkedDevices()) {
+                        if (dev.getRingStatus() == ForkedDeviceDto.RingStatus.RINGING) {
+                            dev.setRingStatus(ForkedDeviceDto.RingStatus.CANCELLED_ANSWERED_ELSEWHERE);
+                            dev.setCancellationReason(reason != null ? reason : "DISMISSED_BY_OTHER_DEVICE");
+                            dev.setMissedCallBadged(false);
+                        }
+                    }
+                }
                 log.info("Terminated call {} with reason: {}", callId, reason);
             }
         }

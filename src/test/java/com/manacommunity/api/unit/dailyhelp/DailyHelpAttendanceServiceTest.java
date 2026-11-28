@@ -4,7 +4,11 @@ import com.manacommunity.api.dailyhelp.dto.DailyHelpDtos.*;
 import com.manacommunity.api.dailyhelp.entity.*;
 import com.manacommunity.api.dailyhelp.repository.DailyHelpRepositories.*;
 import com.manacommunity.api.dailyhelp.service.impl.DailyHelpAttendanceServiceImpl;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.NotificationType;
+import com.manacommunity.api.service.NotificationManagementService;
+import com.manacommunity.api.staff.service.StaffAccessRuleService;
 import com.manacommunity.api.user.model.AppUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,15 +17,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -189,5 +196,91 @@ class DailyHelpAttendanceServiceTest {
         assertThat(history).hasSize(1);
         assertThat(history.get(0).getFlatId()).isEqualTo(1001L);
         verify(attendanceRepo).findFlatAttendanceHistory(101L, 1001L, start, end);
+    }
+
+    @Test
+    @DisplayName("Gate entry notifies all scheduled flats, enforces curfews, and exit reconciles multi-flat dwell")
+    void recordGateEntryAndExit_notifiesScheduledFlatsAndReconciles() {
+        NotificationManagementService notifService = mock(NotificationManagementService.class);
+        StaffAccessRuleService curfewService = mock(StaffAccessRuleService.class);
+        ReflectionTestUtils.setField(attendanceService, "notificationService", notifService);
+        ReflectionTestUtils.setField(attendanceService, "accessRuleService", curfewService);
+
+        // Weekend-only flat should NOT receive Monday entry notification (mask 96 = Sat+Sun)
+        AppUser weekendResident = AppUser.builder().id(503L).fullName("Weekend Owner").build();
+        FlatStaffContract weekendOnly = FlatStaffContract.builder()
+                .id(203L).community(communityGreenGlen).flatId(1003L).resident(weekendResident)
+                .affiliation(affiliationGreenGlen).serviceType("COOK_WEEKEND").daysOfWeekMask(96)
+                .scheduledStartTime(LocalTime.of(9, 0)).scheduledEndTime(LocalTime.of(10, 0))
+                .monthlyStipend(new BigDecimal("2000.00")).build();
+
+        LocalDateTime entryTs = LocalDateTime.of(2026, 11, 23, 6, 55); // Monday
+        LocalDateTime exitTs = LocalDateTime.of(2026, 11, 23, 9, 0);
+
+        when(affiliationRepo.findByCommunityIdAndStaffProfile_StaffUuid(101L, "cook-uuid-42"))
+                .thenReturn(Optional.of(affiliationGreenGlen));
+        when(curfewService.isAccessAllowed(eq(11L), eq("MONDAY"), any())).thenReturn(true);
+        when(contractRepo.findByCommunityIdAndAffiliation_StaffProfile_StaffUuidAndIsActiveTrue(101L, "cook-uuid-42"))
+                .thenReturn(List.of(contractA101, contractB202, weekendOnly));
+        when(attendanceRepo.findByContract_IdAndWorkDate(any(), any())).thenReturn(Optional.empty());
+
+        StaffGateScanResultDto entryRes = attendanceService.recordGateEntry(StaffGateScanRequest.builder()
+                .communityId(101L).staffUuid("cook-uuid-42").gateName("East Gate").eventTimestamp(entryTs).build());
+
+        assertThat(entryRes.getGateState()).isEqualTo("IN");
+        assertThat(entryRes.getNotifiedResidentsCount()).isEqualTo(2);
+        assertThat(entryRes.getNotifiedFlatIds()).containsExactly(1001L, 1002L);
+        verify(notifService).createNotification(eq(501L), eq(NotificationType.VISITOR_CHECK_IN), any(),
+                eq("Daily Help Arrived"), contains("East Gate"), any(), any(), eq(11L), any(), any(), eq(101L));
+        verify(notifService).createNotification(eq(502L), eq(NotificationType.VISITOR_CHECK_IN), any(),
+                eq("Daily Help Arrived"), contains("East Gate"), any(), any(), eq(11L), any(), any(), eq(101L));
+        verify(notifService, never()).createNotification(eq(503L), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        StaffGateScanResultDto exitRes = attendanceService.recordGateExit(StaffGateScanRequest.builder()
+                .communityId(101L).staffUuid("cook-uuid-42").gateName("East Gate").eventTimestamp(exitTs).build());
+
+        assertThat(exitRes.getGateState()).isEqualTo("OUT");
+        assertThat(exitRes.getReconciledSessions()).hasSize(2);
+        verify(notifService).createNotification(eq(501L), eq(NotificationType.VISITOR_CHECK_OUT), any(),
+                eq("Daily Help Exited"), contains("East Gate"), any(), any(), eq(11L), any(), any(), eq(101L));
+
+        // Curfew violation after allowed window must block entry
+        when(curfewService.isAccessAllowed(eq(11L), eq("MONDAY"), eq(LocalTime.of(23, 30)))).thenReturn(false);
+        assertThatThrownBy(() -> attendanceService.recordGateEntry(StaffGateScanRequest.builder()
+                .communityId(101L).staffUuid("cook-uuid-42").gateName("Main Gate")
+                .eventTimestamp(LocalDateTime.of(2026, 11, 23, 23, 30)).build()))
+                .isInstanceOf(UnauthorizedActionException.class);
+    }
+
+    @Test
+    @DisplayName("Registers global worker once by phone hash and affiliates across multiple societies")
+    void registerMultiSocietyWorker_sharesGlobalProfileAcrossSocieties() {
+        when(staffProfileRepo.findByPhoneHash(anyString())).thenReturn(Optional.empty());
+        when(staffProfileRepo.save(any(GlobalStaffProfile.class))).thenAnswer(inv -> {
+            GlobalStaffProfile p = inv.getArgument(0);
+            p.setId(55L);
+            return p;
+        });
+        when(staffProfileRepo.findByStaffUuid(anyString())).thenAnswer(inv -> Optional.of(GlobalStaffProfile.builder()
+                .id(55L).staffUuid(inv.getArgument(0)).displayName("Raju Driver").primaryCategory("DRIVER")
+                .maskedPhone("+91 98****4321").aggregateRating(new BigDecimal("5.00")).ratingSampleSize(0).build()));
+        when(affiliationRepo.findByCommunityIdAndStaffProfile_Id(102L, 55L)).thenReturn(Optional.empty());
+        when(affiliationRepo.findByStaffProfile_StaffUuid(anyString())).thenReturn(List.of(
+                SocietyStaffAffiliation.builder().community(communityGreenGlen).build(),
+                SocietyStaffAffiliation.builder().community(Community.builder().id(102L).name("Palm Meadows").build()).build()
+        ));
+
+        CrossSocietyStaffProfileDto profile = attendanceService.registerMultiSocietyWorker(
+                MultiSocietyAffiliationRequest.builder()
+                        .staffUuid("driver-55")
+                        .displayName("Raju Driver")
+                        .primaryCategory("DRIVER")
+                        .rawPhone("9876544321")
+                        .communityId(102L)
+                        .localBadgeId("PM-D-055")
+                        .build());
+
+        assertThat(profile.getMaskedPhone()).isEqualTo("+91 98****4321");
+        assertThat(profile.getAffiliatedCommunities()).containsExactly("Green Glen", "Palm Meadows");
     }
 }

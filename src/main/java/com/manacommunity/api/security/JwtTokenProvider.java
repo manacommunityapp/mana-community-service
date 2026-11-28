@@ -94,27 +94,53 @@ public class JwtTokenProvider {
 
     /** Mints a signed, short-lived <b>access</b> token with explicit permissions. */
     public String generateToken(AppUser user, List<String> permissions) {
-        return build(user, TYPE_ACCESS, expirationMs, permissions);
+        Long defaultCommunity = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return build(user, TYPE_ACCESS, expirationMs, permissions, defaultCommunity, null);
+    }
+
+    /** Mints a signed, short-lived <b>access</b> token scoped to a specific community and persona roles. */
+    public String generateTokenForCommunity(AppUser user, Long communityId, List<String> scopedRoles, List<String> permissions) {
+        return build(user, TYPE_ACCESS, expirationMs, permissions, communityId, scopedRoles);
     }
 
     /** Mints a signed, long-lived <b>refresh</b> token (exchanged at {@code /api/auth/refresh}). */
     public String generateRefreshToken(AppUser user) {
-        return build(user, TYPE_REFRESH, refreshExpirationMs, null);
+        Long defaultCommunity = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null, defaultCommunity, null);
     }
 
-    private String build(AppUser user, String type, long ttlMs, List<String> permissions) {
+    /** Mints a community-scoped refresh token. */
+    public String generateRefreshTokenForCommunity(AppUser user, Long communityId, List<String> scopedRoles) {
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null, communityId, scopedRoles);
+    }
+
+    private String build(AppUser user, String type, long ttlMs, List<String> permissions,
+                         Long overrideCommunityId, List<String> overrideRoles) {
         Instant now = Instant.now();
 
-        // Build the roles list from the comma-separated role string for structured JWT embedding.
-        List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
-                ? java.util.Collections.emptyList()
-                : java.util.Arrays.stream(user.getRole().split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .distinct()
-                        .collect(Collectors.toList());
+        List<String> rolesList;
+        String roleClaim;
+        if (overrideRoles != null && !overrideRoles.isEmpty()) {
+            rolesList = overrideRoles.stream()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(Collectors.toList());
+            roleClaim = String.join(",", rolesList);
+        } else {
+            rolesList = (user.getRole() == null || user.getRole().isBlank())
+                    ? java.util.Collections.emptyList()
+                    : java.util.Arrays.stream(user.getRole().split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .distinct()
+                            .collect(Collectors.toList());
+            roleClaim = user.getRole();
+        }
 
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long communityId = overrideCommunityId != null
+                ? overrideCommunityId
+                : (user.getCommunity() != null ? user.getCommunity().getId() : null);
 
         var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString()) // jti — unique token ID for blacklisting
@@ -122,8 +148,8 @@ public class JwtTokenProvider {
                 .audience().add(audience).and()
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
-                .claim("role", user.getRole())   // kept for backward compatibility
-                .claim("roles", rolesList)        // structured list for multi-role consumers
+                .claim("role", roleClaim)
+                .claim("roles", rolesList)
                 .claim(TYPE_CLAIM, type)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(ttlMs)));

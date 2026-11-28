@@ -52,6 +52,13 @@ public class GlobalExceptionHandler {
 
     // ─── 1. Business Exceptions ──────────────────────────────────────────────
 
+    @ExceptionHandler(ModuleNotEnabledException.class)
+    public ResponseEntity<ErrorResponse> handleModuleNotEnabled(
+            ModuleNotEnabledException ex, HttpServletRequest request) {
+        log.warn("Module not enabled: {}", ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex, HttpServletRequest request) {

@@ -15,6 +15,10 @@ public interface ServiceProviderRepository extends JpaRepository<ServiceProvider
 
     Optional<ServiceProvider> findByUserId(Long userId);
 
+    List<ServiceProvider> findAllByUserId(Long userId);
+
+    Optional<ServiceProvider> findByUserIdAndCommunityId(Long userId, Long communityId);
+
     boolean existsByUserId(Long userId);
 
     Page<ServiceProvider> findByCommunityIdAndVerificationStatus(Long communityId,

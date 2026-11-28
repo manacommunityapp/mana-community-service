@@ -176,6 +176,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- AOP support — required for @ModuleRequired aspect -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- Spring Data Redis (distributed rate limiting, WS session tracking) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -50,6 +50,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private CommunityMembershipService communityMembershipService;
+
+    public void setCommunityMembershipService(CommunityMembershipService communityMembershipService) {
+        this.communityMembershipService = communityMembershipService;
+    }
+
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
@@ -138,31 +145,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.debug("Rejected token issued before password/session invalidation for userId={}", userId);
             return;
         }
-        setAuthentication(user, request);
+        Long tokenCommunityId = rawJwtToken != null ? jwtTokenProvider.getCommunityId(rawJwtToken) : null;
+        setAuthentication(user, request, tokenCommunityId);
     }
 
     private void setAuthentication(AppUser user, HttpServletRequest request) {
+        setAuthentication(user, request, null);
+    }
+
+    private void setAuthentication(AppUser user, HttpServletRequest request, Long tokenCommunityId) {
+        Long requestedHeaderCommunityId = parseRequestedCommunityHeader(request);
+        Long activeCommunityId = resolveActiveCommunityId(user, requestedHeaderCommunityId, tokenCommunityId);
+
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        boolean isSuperAdmin = false;
-        if (user.getRole() != null) {
-            String[] roles = user.getRole().split(",");
-            for (String r : roles) {
-                String trimmed = r.trim().toUpperCase();
-                if (!trimmed.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + trimmed));
-                    if (ROLE_SUPER_ADMIN.equals(trimmed)) {
-                        isSuperAdmin = true;
-                    }
-                }
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
+        List<String> scopedRoles = resolveScopedRoles(user, activeCommunityId);
+        for (String roleName : scopedRoles) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+            if (ROLE_SUPER_ADMIN.equals(roleName)) {
+                isSuperAdmin = true;
             }
         }
 
         List<String> effectivePerms = rolePermissionService.getEffectivePermissionsForUser(user);
 
         Set<String> enabledModules = null;
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (!isSuperAdmin && communityId != null) {
-            enabledModules = resolveEnabledModules(communityId);
+        if (!isSuperAdmin && activeCommunityId != null) {
+            enabledModules = resolveEnabledModules(activeCommunityId);
         }
 
         for (String permKey : effectivePerms) {
@@ -172,7 +181,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         UserPrincipal principal = new UserPrincipal(
-                user.getId(), user.getEmail(), user.getPasswordHash(), authorities, user);
+                user.getId(), user.getEmail(), user.getPasswordHash(), authorities, user, activeCommunityId);
 
         UsernamePasswordAuthenticationToken authToken =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
@@ -180,6 +189,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authToken);
 
         org.slf4j.MDC.put(CorrelationIdFilter.MDC_USER_ID, String.valueOf(user.getId()));
+    }
+
+    private Long parseRequestedCommunityHeader(HttpServletRequest request) {
+        if (request == null) return null;
+        String headerVal = request.getHeader("X-Community-ID");
+        if (headerVal == null || headerVal.isBlank()) {
+            headerVal = request.getHeader("X-Community-Id");
+        }
+        if (headerVal != null && !headerVal.isBlank()) {
+            try {
+                return Long.parseLong(headerVal.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return null;
+    }
+
+    private Long resolveActiveCommunityId(AppUser user, Long headerCommunityId, Long tokenCommunityId) {
+        if (headerCommunityId != null && communityMembershipService != null
+                && communityMembershipService.isUserAuthorizedForCommunity(user, headerCommunityId)) {
+            return headerCommunityId;
+        }
+        if (tokenCommunityId != null && (communityMembershipService == null
+                || communityMembershipService.isUserAuthorizedForCommunity(user, tokenCommunityId))) {
+            return tokenCommunityId;
+        }
+        return user.getCommunity() != null ? user.getCommunity().getId() : null;
+    }
+
+    private List<String> resolveScopedRoles(AppUser user, Long activeCommunityId) {
+        if (communityMembershipService != null && activeCommunityId != null) {
+            List<String> scoped = communityMembershipService.resolveRolesForCommunity(user, activeCommunityId);
+            if (!scoped.isEmpty()) {
+                return scoped;
+            }
+        }
+        List<String> fallback = new ArrayList<>();
+        if (user.getRole() != null) {
+            for (String r : user.getRole().split(",")) {
+                String trimmed = r.trim().toUpperCase();
+                if (!trimmed.isEmpty()) {
+                    fallback.add(trimmed);
+                }
+            }
+        }
+        return fallback;
     }
 
     private boolean isPermissionAllowedByModule(String permissionKey, Set<String> enabledModules) {

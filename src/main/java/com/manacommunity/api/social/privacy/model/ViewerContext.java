@@ -20,6 +20,7 @@ public class ViewerContext {
     private Long viewerUserId;
     private Long communityId;
     private boolean isVerifiedOwner;
+    private boolean isManagementCommittee;
     private boolean isSocietyAdmin;
 
     @Builder.Default
