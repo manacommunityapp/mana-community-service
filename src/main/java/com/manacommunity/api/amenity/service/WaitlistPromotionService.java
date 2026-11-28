@@ -98,14 +98,24 @@ public class WaitlistPromotionService {
             return new SlotBookingService.BookingResult(false, "No active offer for this resident", null, slotId);
         }
 
+        FacilitySlot slot = slotRepository.findByIdWithPessimisticLock(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
+
         if (entry.getOfferExpiresAt() != null && Instant.now().isAfter(entry.getOfferExpiresAt())) {
             entry.setStatus("EXPIRED");
             waitlistRepository.save(entry);
+            if ("HELD".equals(slot.getStatus())) {
+                slot.setStatus("AVAILABLE");
+                slotRepository.save(slot);
+                promoteNextInLine(slotId);
+            }
             return new SlotBookingService.BookingResult(false, "Offer has expired", null, slotId);
         }
 
-        FacilitySlot slot = slotRepository.findByIdWithPessimisticLock(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
+        if (!"HELD".equals(slot.getStatus()) && !"AVAILABLE".equals(slot.getStatus())) {
+            return new SlotBookingService.BookingResult(false, "Slot is no longer held for offer", null, slotId);
+        }
+
         slot.setStatus("AVAILABLE");
         slotRepository.save(slot);
 
@@ -125,7 +135,7 @@ public class WaitlistPromotionService {
             waitlistRepository.save(entry);
             log.info("Offer expired for resident {} on slot {}", entry.getResidentId(), entry.getSlotId());
 
-            FacilitySlot slot = slotRepository.findById(entry.getSlotId()).orElse(null);
+            FacilitySlot slot = slotRepository.findByIdWithPessimisticLock(entry.getSlotId()).orElse(null);
             if (slot != null && "HELD".equals(slot.getStatus())) {
                 slot.setStatus("AVAILABLE");
                 slotRepository.save(slot);
@@ -146,7 +156,7 @@ public class WaitlistPromotionService {
                 .orElseThrow(() -> new IllegalArgumentException("Not on waitlist"));
 
         if ("OFFERED".equals(entry.getStatus())) {
-            FacilitySlot slot = slotRepository.findById(slotId).orElse(null);
+            FacilitySlot slot = slotRepository.findByIdWithPessimisticLock(slotId).orElse(null);
             if (slot != null && "HELD".equals(slot.getStatus())) {
                 slot.setStatus("AVAILABLE");
                 slotRepository.save(slot);

@@ -89,4 +89,7 @@ public class HelpdeskTicket extends BaseAuditEntity {
 
     @Column(name = "resolution_notes", length = 1000)
     private String resolutionNotes;
+
+    @Column(name = "attachment_urls", columnDefinition = "TEXT")
+    private String attachmentUrls;
 }
