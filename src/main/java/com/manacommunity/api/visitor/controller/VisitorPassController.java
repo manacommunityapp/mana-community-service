@@ -4,6 +4,8 @@ import com.manacommunity.api.privacy.PiiMaskingService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.visitor.dto.QrScanRequest;
+import com.manacommunity.api.visitor.dto.QrScanResponse;
 import com.manacommunity.api.visitor.dto.VisitorPassRequest;
 import com.manacommunity.api.visitor.dto.VisitorPassResponse;
 import com.manacommunity.api.visitor.entity.VisitorAuditLog;
@@ -307,6 +309,33 @@ public class VisitorPassController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getApprovalStatus(@PathVariable Long id) {
         return ResponseEntity.ok(visitorPassService.getApprovalStatus(id));
+    }
+
+    /**
+     * Guard-side QR scan endpoint.
+     *
+     * Validates the Ed25519-signed QR token, enforces one-time use via Redis JTI
+     * deduplication, and performs check-in atomically.
+     *
+     * Response codes:
+     *   200 CHECKED_IN          — first valid scan; visitor is now checked in
+     *   200 ALREADY_CHECKED_IN  — QR replay; checkedInAt tells when first scan happened
+     *   200 REJECTED            — invalid/expired/wrong-community token
+     *   200 PASS_NOT_APPROVABLE — token valid but pass not in APPROVED state
+     */
+    @PostMapping("/scan")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<QrScanResponse> scanQr(
+            @Valid @RequestBody QrScanRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser guard = loggedInUserService.resolve(principal);
+        Long communityId = guard.getCommunity() != null ? guard.getCommunity().getId() : null;
+        String guardName = req.getGuardName() != null && !req.getGuardName().isBlank()
+                ? req.getGuardName()
+                : guard.getFullName();
+        QrScanResponse result = visitorPassService.scanQr(
+                req.getToken(), req.getGateId(), guardName, req.getVisitorPhoto(), communityId);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/delivery-otp/generate")

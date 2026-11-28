@@ -52,6 +52,9 @@ public class VisitorPassService {
     static final int MAX_OTP_ATTEMPTS = 5;
 
     @Autowired(required = false)
+    private com.manacommunity.api.visitor.security.QrReplayGuardService qrReplayGuardService;
+
+    @Autowired(required = false)
     private com.manacommunity.api.delivery.service.OverstaySlaEngineService overstaySlaEngineService;
 
     @Autowired(required = false)
@@ -476,6 +479,92 @@ public class VisitorPassService {
         VisitorPass pass = repo.findByPassCode(passCode)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + passCode));
         return checkIn(pass.getId(), null, null, null);
+    }
+
+    @Transactional
+    public VisitorPassResponse checkInByCode(String passCode, String gate, String guard, String photo) {
+        VisitorPass pass = repo.findByPassCode(passCode)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + passCode));
+        return checkIn(pass.getId(), gate, guard, photo);
+    }
+
+    /**
+     * Scans a visitor QR code and performs check-in if the token is valid and unused.
+     *
+     * Flow:
+     *  1. Verify Ed25519 signature, expiry, and community tenant match.
+     *  2. Check Redis for the token's JTI to detect replays.
+     *  3. Mark the JTI as USED in Redis (TTL = remaining token validity).
+     *  4. Perform check-in on the matching pass.
+     *
+     * Step 3 happens before step 4 so that concurrent scans of the same QR
+     * on different guard tablets both see "ALREADY_CHECKED_IN" after the first
+     * one wins the Redis SET.
+     */
+    @Transactional
+    public com.manacommunity.api.visitor.dto.QrScanResponse scanQr(
+            String token, String gateId, String guardName, String photo, Long scannerCommunityId) {
+
+        if (offlineQrTokenService == null) {
+            return com.manacommunity.api.visitor.dto.QrScanResponse.builder()
+                    .result("REJECTED")
+                    .message("QR token service not available")
+                    .build();
+        }
+
+        // 1. Verify signature, expiry, community
+        com.manacommunity.api.visitor.security.OfflineQrTokenService.VerifiedQrToken verified =
+                offlineQrTokenService.verifyOfflineToken(token, scannerCommunityId != null ? scannerCommunityId : 0L);
+
+        if (!verified.isValid()) {
+            log.warn("QR scan rejected: {}", verified.getReason());
+            return com.manacommunity.api.visitor.dto.QrScanResponse.builder()
+                    .result("REJECTED")
+                    .message(verified.getReason())
+                    .build();
+        }
+
+        // 2. Replay check
+        if (qrReplayGuardService != null && qrReplayGuardService.isAlreadyUsed(verified.getJti())) {
+            Optional<VisitorPass> passOpt = repo.findByPassCode(verified.getPassCode());
+            String firstCheckedIn = passOpt.map(p -> formatDt(p.getCheckedInAt())).orElse(null);
+            String msg = "Already checked in" + (firstCheckedIn != null ? " at " + firstCheckedIn : "");
+            log.info("QR replay detected jti={} passCode={}", verified.getJti(), verified.getPassCode());
+            return com.manacommunity.api.visitor.dto.QrScanResponse.builder()
+                    .result("ALREADY_CHECKED_IN")
+                    .message(msg)
+                    .pass(passOpt.map(this::toResponse).orElse(null))
+                    .firstCheckedInAt(firstCheckedIn)
+                    .build();
+        }
+
+        // 3. Mark JTI as used BEFORE proceeding (closes concurrent-scan race)
+        long remainingTtl = verified.getExpiresAtEpochSec() - java.time.Instant.now().getEpochSecond();
+        if (qrReplayGuardService != null) {
+            qrReplayGuardService.markUsed(verified.getJti(), remainingTtl);
+        }
+
+        // 4. Perform check-in
+        try {
+            VisitorPassResponse pass = checkInByCode(verified.getPassCode(), gateId, guardName, photo);
+            log.info("QR check-in success passCode={} gate={}", verified.getPassCode(), gateId);
+            return com.manacommunity.api.visitor.dto.QrScanResponse.builder()
+                    .result("CHECKED_IN")
+                    .message("Visitor checked in successfully")
+                    .pass(pass)
+                    .build();
+        } catch (IllegalStateException ex) {
+            // Pass exists but is not in APPROVED status (already checked in via other method, rejected, etc.)
+            if (qrReplayGuardService != null) {
+                qrReplayGuardService.markUsed(verified.getJti(), remainingTtl); // keep it used
+            }
+            Optional<VisitorPass> passOpt = repo.findByPassCode(verified.getPassCode());
+            return com.manacommunity.api.visitor.dto.QrScanResponse.builder()
+                    .result("PASS_NOT_APPROVABLE")
+                    .message(ex.getMessage())
+                    .pass(passOpt.map(this::toResponse).orElse(null))
+                    .build();
+        }
     }
 
     @Transactional
