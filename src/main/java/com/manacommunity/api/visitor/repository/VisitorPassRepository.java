@@ -158,4 +158,40 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM VisitorPass v WHERE v.id IN :ids")
     int deletePassBatch(@Param("ids") List<Long> ids);
+
+    /**
+     * Bulk-expire passes whose expectedAt window has closed.
+     * Targets PENDING / APPROVED / EXPECTED passes where expectedAt < cutoff.
+     * Returns the number of rows updated.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE VisitorPass v
+              SET v.status    = com.manacommunity.api.visitor.entity.VisitorPass.PassStatus.EXPIRED,
+                  v.updatedAt = :now
+            WHERE v.status IN :expirableStatuses
+              AND v.expectedAt IS NOT NULL
+              AND v.expectedAt < :cutoff
+           """)
+    int bulkExpireByExpectedAt(
+            @Param("expirableStatuses") List<VisitorPass.PassStatus> expirableStatuses,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("now") LocalDateTime now);
+
+    /**
+     * Expire stale PENDING passes that never had an expectedAt set and were created
+     * more than staleCutoff hours ago (guard against zombie walk-in records).
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE VisitorPass v
+              SET v.status    = com.manacommunity.api.visitor.entity.VisitorPass.PassStatus.EXPIRED,
+                  v.updatedAt = :now
+            WHERE v.status = com.manacommunity.api.visitor.entity.VisitorPass.PassStatus.PENDING
+              AND v.expectedAt IS NULL
+              AND v.createdAt < :staleCutoff
+           """)
+    int bulkExpireStaleNoExpectedAt(
+            @Param("staleCutoff") LocalDateTime staleCutoff,
+            @Param("now") LocalDateTime now);
 }
