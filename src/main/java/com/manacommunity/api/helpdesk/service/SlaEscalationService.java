@@ -14,13 +14,16 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SlaEscalationService {
 
+    public static final int MAX_PHOTO_ATTACHMENTS = 5;
     private final HelpdeskTicketRepository ticketRepository;
     private final EscalationRuleRepository ruleRepository;
 
@@ -28,6 +31,10 @@ public class SlaEscalationService {
 
     @Transactional
     public HelpdeskTicket createTicket(HelpdeskTicket ticket) {
+        if (ticket.getAttachmentUrls() != null) {
+            ticket.setAttachmentUrls(sanitizeAttachmentUrls(ticket.getAttachmentUrls()));
+        }
+
         List<EscalationRule> rules = ruleRepository
                 .findByCommunityIdAndCategoryAndActiveTrueOrderByEscalationLevelAsc(
                         ticket.getCommunityId(), ticket.getCategory());
@@ -38,7 +45,7 @@ public class SlaEscalationService {
         ticket.setEscalationLevel(0);
         ticket.setStatus("OPEN");
 
-        boolean shouldPause = shouldPauseSla(ticket, rules);
+        boolean shouldPause = shouldPauseSla(ticket, rules, LocalTime.now(IST));
         if (shouldPause) {
             ticket.setSlaPaused(true);
             ticket.setSlaPauseStart(Instant.now());
@@ -47,9 +54,38 @@ public class SlaEscalationService {
         return ticketRepository.save(ticket);
     }
 
+    public static String sanitizeAttachmentUrls(String rawAttachments) {
+        if (rawAttachments == null || rawAttachments.isBlank()) {
+            return null;
+        }
+        List<String> urls = Arrays.stream(rawAttachments.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        if (urls.size() > MAX_PHOTO_ATTACHMENTS) {
+            throw new IllegalArgumentException("Maximum " + MAX_PHOTO_ATTACHMENTS + " photo attachments allowed per complaint");
+        }
+        for (String url : urls) {
+            String lower = url.toLowerCase(Locale.ROOT);
+            boolean safe = lower.startsWith("https://")
+                    || lower.startsWith("http://")
+                    || lower.startsWith("s3://")
+                    || lower.startsWith("file://")
+                    || lower.startsWith("/uploads/");
+            if (!safe) {
+                throw new IllegalArgumentException("Unsupported or unsafe attachment URL scheme: " + url);
+            }
+        }
+        return String.join(",", urls);
+    }
+
     @Transactional
     public EscalationSweepResult runEscalationSweep() {
-        Instant now = Instant.now();
+        return runEscalationSweepAt(Instant.now());
+    }
+
+    @Transactional
+    public EscalationSweepResult runEscalationSweepAt(Instant now) {
         List<HelpdeskTicket> breached = ticketRepository.findBreachedTickets(now);
         List<EscalationEvent> events = new ArrayList<>();
 
@@ -79,7 +115,7 @@ public class SlaEscalationService {
                     .findFirst().orElse(null);
             if (followingRule != null) {
                 ticket.setSlaDeadline(now.plus(Duration.ofMinutes(
-                        followingRule.getEscalateAfterMinutes() - elapsedMinutes)));
+                        Math.max(1L, (long) followingRule.getEscalateAfterMinutes() - elapsedMinutes))));
             }
 
             ticketRepository.save(ticket);
@@ -94,27 +130,32 @@ public class SlaEscalationService {
 
     @Transactional
     public void pauseOffHoursTickets() {
-        LocalTime now = LocalTime.now(IST);
+        pauseOffHoursTicketsAt(Instant.now(), LocalTime.now(IST));
+    }
 
-        List<HelpdeskTicket> active = ticketRepository.findBreachedTickets(Instant.now().plus(Duration.ofDays(30)));
-        // We actually need all active tickets, not just breached. Using status query instead:
-        // This is simplified; in production a dedicated query would be better.
+    @Transactional
+    public void pauseOffHoursTicketsAt(Instant now, LocalTime istTime) {
+        List<HelpdeskTicket> active = ticketRepository.findByStatusIn(List.of("OPEN", "IN_PROGRESS"));
 
         for (HelpdeskTicket ticket : active) {
             List<EscalationRule> rules = ruleRepository
                     .findByCommunityIdAndCategoryAndActiveTrueOrderByEscalationLevelAsc(
                             ticket.getCommunityId(), ticket.getCategory());
 
-            boolean shouldPause = shouldPauseSla(ticket, rules);
+            boolean shouldPause = shouldPauseSla(ticket, rules, istTime);
 
-            if (shouldPause && !ticket.getSlaPaused()) {
+            if (shouldPause && !Boolean.TRUE.equals(ticket.getSlaPaused())) {
                 ticket.setSlaPaused(true);
-                ticket.setSlaPauseStart(Instant.now());
+                ticket.setSlaPauseStart(now);
                 ticketRepository.save(ticket);
                 log.debug("SLA paused for ticket {} (off-hours)", ticket.getId());
-            } else if (!shouldPause && ticket.getSlaPaused()) {
-                long pausedMinutes = Duration.between(ticket.getSlaPauseStart(), Instant.now()).toMinutes();
-                ticket.setSlaDeadline(ticket.getSlaDeadline().plus(Duration.ofMinutes(pausedMinutes)));
+            } else if (!shouldPause && Boolean.TRUE.equals(ticket.getSlaPaused())) {
+                long pausedMinutes = ticket.getSlaPauseStart() != null
+                        ? Math.max(0L, Duration.between(ticket.getSlaPauseStart(), now).toMinutes())
+                        : 0L;
+                if (ticket.getSlaDeadline() != null) {
+                    ticket.setSlaDeadline(ticket.getSlaDeadline().plus(Duration.ofMinutes(pausedMinutes)));
+                }
                 ticket.setSlaPaused(false);
                 ticket.setSlaPauseStart(null);
                 ticketRepository.save(ticket);
@@ -123,7 +164,7 @@ public class SlaEscalationService {
         }
     }
 
-    private boolean shouldPauseSla(HelpdeskTicket ticket, List<EscalationRule> rules) {
+    private boolean shouldPauseSla(HelpdeskTicket ticket, List<EscalationRule> rules, LocalTime istNow) {
         if ("HIGH".equals(ticket.getPriority()) || "CRITICAL".equals(ticket.getPriority())) {
             return false;
         }
@@ -136,14 +177,13 @@ public class SlaEscalationService {
 
         if (current == null) return false;
 
-        LocalTime now = LocalTime.now(IST);
         int offStart = current.getOffHoursStart();
         int offEnd = current.getOffHoursEnd();
 
         if (offStart > offEnd) {
-            return now.getHour() >= offStart || now.getHour() < offEnd;
+            return istNow.getHour() >= offStart || istNow.getHour() < offEnd;
         }
-        return now.getHour() >= offStart && now.getHour() < offEnd;
+        return istNow.getHour() >= offStart && istNow.getHour() < offEnd;
     }
 
     private int computeElapsedMinutes(HelpdeskTicket ticket, Instant now) {
@@ -151,7 +191,7 @@ public class SlaEscalationService {
             return 0;
         }
         long totalMinutes = Duration.between(ticket.getCreatedAt().atZone(IST).toInstant(), now).toMinutes();
-        return (int) totalMinutes - (ticket.getSlaElapsedMinutes() > 0 ? 0 : 0);
+        return (int) Math.max(0L, totalMinutes);
     }
 
     @Transactional

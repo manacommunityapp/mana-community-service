@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -70,10 +72,29 @@ public class SlotBookingService {
         releaseQuota(facility, slot);
 
         String oldRef = slot.getBookingReference();
-        slot.setStatus("AVAILABLE");
         slot.setBookedByResidentId(null);
         slot.setBookedByFlatNo(null);
         slot.setBookingReference(null);
+
+        // Atomically hold cancelled slot for position #1 on waitlist so no third party snatches it
+        List<BookingWaitlist> waiters = waitlistRepository.findBySlotIdAndStatusOrderByPositionAsc(slotId, "WAITING");
+        if (!waiters.isEmpty()) {
+            BookingWaitlist next = waiters.get(0);
+            Instant now = Instant.now();
+            next.setStatus("OFFERED");
+            next.setOfferedAt(now);
+            next.setOfferExpiresAt(now.plus(Duration.ofMinutes(15)));
+            waitlistRepository.save(next);
+
+            slot.setStatus("HELD");
+            slotRepository.save(slot);
+            log.info("Booking {} cancelled for slot {}; immediately offered HOLD to waitlist resident {} (pos {})",
+                    oldRef, slotId, next.getResidentId(), next.getPosition());
+            return new CancelResult(true, "Cancelled and offered slot to waitlist position " + next.getPosition(),
+                    oldRef, next.getResidentId(), next.getPosition());
+        }
+
+        slot.setStatus("AVAILABLE");
         slotRepository.save(slot);
 
         log.info("Booking {} cancelled for slot {}", oldRef, slotId);
@@ -170,6 +191,16 @@ public class SlotBookingService {
     }
 
     public record BookingResult(boolean success, String message, String bookingReference, Long slotId) {}
-    public record CancelResult(boolean success, String message, String cancelledReference) {}
+    public record CancelResult(
+            boolean success,
+            String message,
+            String cancelledReference,
+            Long promotedWaitlistResidentId,
+            Integer promotedWaitlistPosition
+    ) {
+        public CancelResult(boolean success, String message, String cancelledReference) {
+            this(success, message, cancelledReference, null, null);
+        }
+    }
     private record QuotaCheckResult(boolean allowed, String reason) {}
 }

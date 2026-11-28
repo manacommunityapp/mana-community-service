@@ -18,6 +18,8 @@ public interface HelpdeskTicketRepository extends JpaRepository<HelpdeskTicket, 
 
     List<HelpdeskTicket> findByCommunityIdAndStatusIn(Long communityId, List<String> statuses);
 
+    List<HelpdeskTicket> findByStatusIn(List<String> statuses);
+
     List<HelpdeskTicket> findByParentIncidentId(Long parentIncidentId);
 
     @Query("SELECT t FROM HelpdeskTicket t WHERE t.status IN ('OPEN','IN_PROGRESS') AND t.slaPaused = false AND t.slaDeadline < :now")

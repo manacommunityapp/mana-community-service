@@ -140,7 +140,7 @@ public class TicketService {
                 .slaStatus(Ticket.SlaStatus.ON_TRACK)
                 .urgencyScore(aiResult.urgencyScore())
                 .aiClassificationJson(aiResult.toJson())
-                .attachments(req.getAttachments())
+                .attachments(SlaEscalationService.sanitizeAttachmentUrls(req.getAttachments()))
                 .escalationLevel(0)
                 .escalated(false)
                 .reopenCount(0)
