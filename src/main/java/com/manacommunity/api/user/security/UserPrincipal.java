@@ -23,21 +23,30 @@ public class UserPrincipal implements UserDetails {
     private final String email;
     private final String password;
     private final AppUser user;
+    private final Long activeCommunityId;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities) {
-        this(id, email, password, authorities, null);
+        this(id, email, password, authorities, null, null);
     }
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities,
                          AppUser user) {
+        this(id, email, password, authorities, user, null);
+    }
+
+    public UserPrincipal(Long id, String email, String password,
+                         Collection<? extends GrantedAuthority> authorities,
+                         AppUser user,
+                         Long activeCommunityId) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
         this.user = user;
+        this.activeCommunityId = activeCommunityId;
     }
 
     public Long getId() { return id; }
@@ -45,6 +54,9 @@ public class UserPrincipal implements UserDetails {
     public AppUser getUser() { return user; }
 
     public Long getCommunityId() {
+        if (activeCommunityId != null) {
+            return activeCommunityId;
+        }
         return user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
     }
 

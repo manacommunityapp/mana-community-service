@@ -41,6 +41,7 @@ public class CutoverSnapshot extends BaseAuditEntity {
     private int pendingVouchers;
 
     private double openingBalanceRwa;
+    private double gstInputCreditCarryover;
     @Builder.Default private boolean openingBalanceFrozen = false;
     private LocalDateTime frozenAt;
     private String frozenByName;

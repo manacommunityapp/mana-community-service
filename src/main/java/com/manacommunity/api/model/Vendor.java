@@ -48,6 +48,12 @@ public class Vendor {
     @Builder.Default
     private Boolean active = true;
 
+    @Column(name = "contract_start_date")
+    private java.time.LocalDate contractStartDate;
+
+    @Column(name = "contract_end_date")
+    private java.time.LocalDate contractEndDate;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

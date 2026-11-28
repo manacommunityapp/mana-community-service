@@ -150,4 +150,56 @@ class EvChargingServiceTest {
         assertThat(testCharger.getStatus()).isEqualTo(EvCharger.ChargerStatus.AVAILABLE);
         verify(chargerRepository).save(testCharger);
     }
+
+    @Test
+    @DisplayName("handlePowerCutInterruption: settles partial kWh, sets charger to FAULT POWER_CUT, and debits wallet once")
+    void handlePowerCutInterruption_settlesPartialEnergyAndMarksFault() {
+        EvChargingSession activeSession = EvChargingSession.builder()
+                .id(501L).community(testCommunity).charger(testCharger).resident(testResident)
+                .startedAt(LocalDateTime.now().minusMinutes(45)).startMeterKwh(100.0)
+                .status(EvChargingSession.SessionStatus.ACTIVE).build();
+
+        when(sessionRepository.findById(501L)).thenReturn(Optional.of(activeSession));
+        when(billingEngine.calculateKwh(100.0, 108.5)).thenReturn(8.5);
+        when(billingEngine.calculateCost(eq(8.5), any(), any(), any())).thenReturn(new BigDecimal("85.00"));
+        when(walletEngine.debitWallet(eq(55L), eq(new BigDecimal("85.00")), eq(WalletTransactionType.EV_CHARGING),
+                eq("EV_POWER_CUT_SETTLEMENT"), eq(501L), anyString()))
+                .thenReturn(CfbosWalletTransaction.builder().id(888L).amount(new BigDecimal("85.00")).build());
+        when(sessionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        EvChargingSessionResponse res = service.handlePowerCutInterruption(501L, 108.5);
+
+        assertThat(res.status()).isEqualTo("COMPLETED");
+        assertThat(res.stopReason()).isEqualTo("POWER_CUT");
+        assertThat(res.totalKwh()).isEqualTo(8.5);
+        assertThat(res.totalCost()).isEqualByComparingTo("85.00");
+        assertThat(testCharger.getStatus()).isEqualTo(EvCharger.ChargerStatus.FAULT);
+        assertThat(testCharger.getLastFaultCode()).isEqualTo("POWER_CUT");
+    }
+
+    @Test
+    @DisplayName("evaluateIdleOverstayPenalty: triggers automatic wallet penalty only at 100% SoC beyond grace period")
+    void evaluateIdleOverstayPenalty_triggersAt100PercentSoc() {
+        EvChargingSession session = EvChargingSession.builder()
+                .id(502L).community(testCommunity).charger(testCharger).resident(testResident)
+                .startedAt(LocalDateTime.now().minusHours(3)).startMeterKwh(50.0)
+                .status(EvChargingSession.SessionStatus.ACTIVE).build();
+        when(sessionRepository.findById(502L)).thenReturn(Optional.of(session));
+
+        // 85% SoC -> no overstay penalty even if idleMinutes > 0
+        var below100 = service.evaluateIdleOverstayPenalty(502L, new BigDecimal("85"), 30L, new BigDecimal("60.00"));
+        assertThat(below100.penaltyTriggered()).isFalse();
+        assertThat(below100.penaltyAmount()).isEqualByComparingTo("0.00");
+
+        // 100% SoC + 45 min past grace @ ₹60/hr -> ₹45.00 penalty debited & charger marked OCCUPIED_IDLE
+        when(walletEngine.debitWallet(eq(55L), eq(new BigDecimal("45.00")), eq(WalletTransactionType.EV_CHARGING),
+                eq("EV_OVERSTAY_PENALTY"), eq(502L), anyString()))
+                .thenReturn(CfbosWalletTransaction.builder().id(999L).amount(new BigDecimal("45.00")).build());
+
+        var overstay = service.evaluateIdleOverstayPenalty(502L, new BigDecimal("100"), 45L, new BigDecimal("60.00"));
+        assertThat(overstay.penaltyTriggered()).isTrue();
+        assertThat(overstay.penaltyAmount()).isEqualByComparingTo("45.00");
+        assertThat(overstay.walletTxnId()).isEqualTo(999L);
+        assertThat(testCharger.getStatus()).isEqualTo(EvCharger.ChargerStatus.OCCUPIED_IDLE);
+    }
 }

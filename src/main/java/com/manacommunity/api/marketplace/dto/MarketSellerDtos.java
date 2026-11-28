@@ -26,6 +26,7 @@ public class MarketSellerDtos {
         private String contactPhone;
         private String contactEmail;
         private String flatNumber;
+        private Long communityId;
     }
 
     /**

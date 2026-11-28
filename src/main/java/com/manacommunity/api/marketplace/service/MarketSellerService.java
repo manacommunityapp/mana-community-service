@@ -30,9 +30,31 @@ public class MarketSellerService {
     /** Same protector resident KYC uses: validates the client digest and peppers it. */
     private final KycIdNumberProtector idNumberProtector;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.repository.CommunityRepository communityRepository;
+
     @Transactional
     public SellerProfileResponse registerSeller(AppUser user, SellerRegisterRequest request) {
-        return sellerRepository.findByUserId(user.getId())
+        Long requestedCommunityId = request.getCommunityId() != null
+                ? request.getCommunityId()
+                : (user.getCommunity() != null ? user.getCommunity().getId() : null);
+
+        java.util.Optional<MarketSellerProfile> existingOpt = requestedCommunityId != null
+                ? sellerRepository.findByUserIdAndCommunityId(user.getId(), requestedCommunityId)
+                : sellerRepository.findByUserId(user.getId());
+
+        if (existingOpt.isEmpty() && request.getCommunityId() == null) {
+            existingOpt = sellerRepository.findByUserId(user.getId());
+        }
+
+        com.manacommunity.api.model.Community targetCommunity = user.getCommunity();
+        if (request.getCommunityId() != null && communityRepository != null) {
+            targetCommunity = communityRepository.findById(request.getCommunityId())
+                    .orElse(user.getCommunity());
+        }
+
+        final com.manacommunity.api.model.Community resolvedCommunity = targetCommunity;
+        return existingOpt
                 .map(existing -> {
                     existing.setBusinessName(request.getBusinessName());
                     existing.setSellerType(request.getSellerType());
@@ -51,7 +73,7 @@ public class MarketSellerService {
                             .contactPhone(request.getContactPhone() != null ? request.getContactPhone() : user.getPhone())
                             .contactEmail(request.getContactEmail() != null ? request.getContactEmail() : user.getEmail())
                             .flatNumber(request.getFlatNumber())
-                            .community(user.getCommunity())
+                            .community(resolvedCommunity)
                             .kycStatus(MarketSellerProfile.KycStatus.UNVERIFIED)
                             .isActive(true)
                             .isOpen(true)

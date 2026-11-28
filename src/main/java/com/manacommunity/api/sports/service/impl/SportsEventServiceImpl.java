@@ -2549,6 +2549,68 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     @Transactional
+    public com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse batchWithdraw(
+            List<Long> registrationIds, Long userId, boolean admin, String reason) {
+        List<Long> withdrawn = new java.util.ArrayList<>();
+        List<com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse.FailedWithdrawal> failed = new java.util.ArrayList<>();
+        for (Long id : registrationIds) {
+            try {
+                withdraw(id, userId, admin, reason);
+                withdrawn.add(id);
+            } catch (Exception e) {
+                failed.add(com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse.FailedWithdrawal.builder()
+                        .registrationId(id)
+                        .reason(e.getMessage())
+                        .build());
+            }
+        }
+        return com.manacommunity.api.sports.dto.SportsMultiUnregisterResponse.builder()
+                .withdrawn(withdrawn)
+                .failed(failed)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public com.manacommunity.api.sports.dto.SportsMultiRegisterResponse batchRegister(
+            List<com.manacommunity.api.dto.RegistrationRequest> registrations, Long userId, boolean admin) {
+        List<com.manacommunity.api.sports.dto.SportsMultiRegisterResponse.RegisteredItem> registered = new java.util.ArrayList<>();
+        List<com.manacommunity.api.sports.dto.SportsMultiRegisterResponse.FailedRegistration> failed = new java.util.ArrayList<>();
+        for (com.manacommunity.api.dto.RegistrationRequest req : registrations) {
+            try {
+                SportsEventRegistration reg;
+                if (req.getParticipantUserId() != null) {
+                    reg = registerOthers(req, userId, admin);
+                } else {
+                    reg = registerUser(req, userId, admin);
+                }
+                registered.add(com.manacommunity.api.sports.dto.SportsMultiRegisterResponse.RegisteredItem.builder()
+                        .registrationId(reg.getId())
+                        .playerName(reg.getPlayerName())
+                        .status(reg.getStatus() != null ? reg.getStatus().name() : null)
+                        .build());
+            } catch (Exception e) {
+                failed.add(com.manacommunity.api.sports.dto.SportsMultiRegisterResponse.FailedRegistration.builder()
+                        .playerName(req.getPlayerName())
+                        .participantUserId(req.getParticipantUserId())
+                        .familyMemberId(req.getFamilyMemberId())
+                        .reason(e.getMessage())
+                        .build());
+            }
+        }
+        return com.manacommunity.api.sports.dto.SportsMultiRegisterResponse.builder()
+                .registered(registered)
+                .failed(failed)
+                .build();
+    }
+
+    @Override
+    public List<SportsEventRegistration> getMyRegistrationsForEvent(Long eventId, Long userId) {
+        return regRepo.findByEventIdAndUserId(eventId, userId);
+    }
+
+    @Override
+    @Transactional
     public SportsEvent updateEvent(Long eventId, SportsEventRequest req) {
         SportsEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));

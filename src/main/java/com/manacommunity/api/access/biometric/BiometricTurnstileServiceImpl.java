@@ -51,7 +51,8 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
         Optional<BiometricUserEnrollment> enrollmentOpt = enrollmentRepository.findByFaceEmbeddingHash(request.getFaceEmbeddingHash());
 
         LocalDateTime now = LocalDateTime.now();
-        var eval = ruleEngine.evaluate(turnstile, enrollmentOpt, request.getConfidenceScore(), now);
+        var eval = ruleEngine.evaluate(
+                turnstile, enrollmentOpt, request.getConfidenceScore(), request.getLivenessScore(), now);
 
         String personName = enrollmentOpt.map(BiometricUserEnrollment::getPersonName).orElse("Unknown Person");
         BiometricPersonType personType = enrollmentOpt.map(BiometricUserEnrollment::getPersonType).orElse(BiometricPersonType.VENDOR_WORKER);

@@ -3,8 +3,10 @@ package com.manacommunity.api.childsecurity.service;
 import com.manacommunity.api.childsecurity.entity.*;
 import com.manacommunity.api.childsecurity.entity.ChildExitRequest.*;
 import com.manacommunity.api.childsecurity.entity.EscalationLog.*;
+import com.manacommunity.api.childsecurity.entity.GuardianAuthorization.AuthorizationLevel;
 import com.manacommunity.api.childsecurity.entity.GuardianAuthorization.GuardianRole;
 import com.manacommunity.api.childsecurity.repository.*;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -133,6 +135,19 @@ public class ExitEscalationStateMachine {
 
         GuardianAuthorization guardian = guardianRepo.findById(guardianId)
                 .orElseThrow(() -> new RuntimeException("Guardian not found"));
+
+        if (approved) {
+            if (guardian.getAuthLevel() == AuthorizationLevel.VIEW_ONLY) {
+                throw new UnauthorizedActionException("VIEW_ONLY guardian cannot approve child exit");
+            }
+            boolean primaryLockActive = childRepo.findById(request.getChildId())
+                    .map(ChildProfile::isExitLockEnabled)
+                    .orElse(false);
+            if (primaryLockActive && guardian.getRole() != GuardianRole.PRIMARY_PARENT) {
+                throw new UnauthorizedActionException(
+                        "Primary Parent Only exit lock active: non-primary family members cannot override");
+            }
+        }
 
         request.setEscalationState(EscalationState.GUARDIAN_RESPONDED);
 

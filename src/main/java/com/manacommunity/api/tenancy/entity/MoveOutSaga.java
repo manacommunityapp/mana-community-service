@@ -28,9 +28,10 @@ public class MoveOutSaga extends BaseAuditEntity {
     private double pendingAmount;
     private LocalDateTime duesCheckedAt;
 
-    // Step 2: App access revocation
+    // Step 2: App access revocation & guest passcodes
     @Enumerated(EnumType.STRING)
     private StepStatus appAccessRevocation;
+    private int guestPassesRevoked;
     private LocalDateTime accessRevokedAt;
 
     // Step 3: RFID tag deactivation

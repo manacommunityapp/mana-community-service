@@ -142,6 +142,7 @@ public class DirectoryPrivacyEngineImpl implements DirectoryPrivacyEngine {
         return switch (scope) {
             case EVERYONE_IN_SOCIETY -> true;
             case VERIFIED_OWNERS_ONLY -> viewer.isVerifiedOwner();
+            case MANAGEMENT_COMMITTEE_ONLY -> viewer.isManagementCommittee() || viewer.isSocietyAdmin();
             case CLUB_MEMBERS_ONLY -> hasSharedClubMembership(viewer.getJoinedClubIds(), target.getJoinedClubIds());
             case HIDDEN_COMPLETELY -> false;
         };

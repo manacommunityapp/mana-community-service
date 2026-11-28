@@ -6,10 +6,14 @@ import com.manacommunity.api.federationrisk.entity.FederationTransitToken;
 import com.manacommunity.api.federationrisk.repository.CityRiskSignalRepository;
 import com.manacommunity.api.federationrisk.repository.FederationSubSocietyRepository;
 import com.manacommunity.api.federationrisk.repository.FederationTransitTokenRepository;
+import com.manacommunity.api.federationrisk.service.FederationClubhouseService;
+import com.manacommunity.api.federationrisk.service.FederationClubhouseService.CrossPhaseBookingRequest;
 import com.manacommunity.api.federationrisk.service.FederationGateRoutingService;
 import com.manacommunity.api.federationrisk.service.FederationGateRoutingService.CrossSocietyIsolationException;
 import com.manacommunity.api.federationrisk.service.PrivacyPreservingRiskNetworkService;
 import com.manacommunity.api.federationrisk.service.PrivacyPreservingRiskNetworkService.RiskAssessment;
+import com.manacommunity.api.platform.tenant.TenantContextHolder;
+import com.manacommunity.api.platform.tenant.TenantGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -155,5 +159,56 @@ class FederationAndRiskNetworkTest {
         assertThat(revoked).isEqualTo(2);
         RiskAssessment postAppeal = riskNetworkService.assessCityRisk("HYD", suspectPhone, 2, now);
         assertThat(postAppeal.riskTier()).isEqualTo("NONE");
+    }
+
+    @Test
+    void enforcesSubSocietyLedgerDirectoryIsolationAndSharedFederationClubhouseQuotas() {
+        federationRoutingService.registerSubSociety(10L, 201L, "Phase 1");
+        federationRoutingService.registerSubSociety(10L, 202L, "Phase 2");
+
+        // Sub-Society A MC (201L) cannot view Sub-Society B (202L) financial ledgers or resident directory
+        assertThatThrownBy(() -> federationRoutingService.assertSubSocietyDataIsolation(201L, 202L, "FINANCIAL_LEDGER"))
+                .isInstanceOf(CrossSocietyIsolationException.class);
+        assertThatThrownBy(() -> federationRoutingService.assertSubSocietyDataIsolation(201L, 202L, "RESIDENT_DIRECTORY"))
+                .isInstanceOf(CrossSocietyIsolationException.class);
+        federationRoutingService.assertSubSocietyDataIsolation(201L, 201L, "FINANCIAL_LEDGER");
+
+        TenantGuard tenantGuard = new TenantGuard();
+        try {
+            TenantContextHolder.set(201L);
+            assertThat(tenantGuard.canAccess(null, 201L)).isTrue();
+            assertThat(tenantGuard.canAccess(null, 202L)).isFalse();
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        // Shared Central Clubhouse: Phase 1 + Phase 2 wallets, peak-hour cap & weekly quota
+        FederationClubhouseService clubhouse = new FederationClubhouseService(subSocietyRepo);
+        clubhouse.seedPhaseWallet(10L, 201L, "A-101", 100_000L); // ₹1,000
+        clubhouse.seedPhaseWallet(10L, 202L, "B-202", 50_000L);  // ₹500
+
+        var p1Peak = clubhouse.bookSharedAmenity(new CrossPhaseBookingRequest(
+                10L, 201L, "A-101", "SQUASH_COURT", true, 2, 1, 30_000L));
+        assertThat(p1Peak.confirmed()).isTrue();
+        assertThat(p1Peak.billedSocietyId()).isEqualTo(201L);
+        assertThat(p1Peak.remainingWalletPaise()).isEqualTo(70_000L);
+
+        // Second concurrent peak booking for Phase 1 A-101 blocked by peak-hour limit
+        var p1SecondPeak = clubhouse.bookSharedAmenity(new CrossPhaseBookingRequest(
+                10L, 201L, "A-101", "SQUASH_COURT", true, 2, 1, 30_000L));
+        assertThat(p1SecondPeak.confirmed()).isFalse();
+        assertThat(p1SecondPeak.rejectionReason()).contains("Peak-hour");
+
+        // Phase 2 B-202 independently bills Phase 2 wallet and quota
+        var p2Peak = clubhouse.bookSharedAmenity(new CrossPhaseBookingRequest(
+                10L, 202L, "B-202", "SQUASH_COURT", true, 2, 1, 30_000L));
+        assertThat(p2Peak.confirmed()).isTrue();
+        assertThat(p2Peak.billedSocietyId()).isEqualTo(202L);
+        assertThat(p2Peak.remainingWalletPaise()).isEqualTo(20_000L);
+
+        // Non-federated society rejected
+        assertThatThrownBy(() -> clubhouse.bookSharedAmenity(new CrossPhaseBookingRequest(
+                10L, 999L, "Z-001", "SQUASH_COURT", false, 2, 1, 10_000L)))
+                .isInstanceOf(CrossSocietyIsolationException.class);
     }
 }

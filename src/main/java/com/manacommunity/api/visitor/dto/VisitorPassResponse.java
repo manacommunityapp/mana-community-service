@@ -43,6 +43,8 @@ public class VisitorPassResponse {
     private String guardIn;
     private String guardOut;
     private String visitorPhoto;
+    private Long parcelRecordId;
+    private String parcelCollectionOtp;
 
     /**
      * Plain OTP — populated ONLY at pass creation time (create / createWalkIn).

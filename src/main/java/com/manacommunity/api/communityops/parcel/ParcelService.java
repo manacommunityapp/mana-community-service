@@ -1,13 +1,19 @@
 package com.manacommunity.api.communityops.parcel;
 
+import com.manacommunity.api.notification.orchestrator.NotificationDtos.UnifiedNotificationRequest;
+import com.manacommunity.api.notification.orchestrator.NotificationEnums.NotificationCategory;
+import com.manacommunity.api.notification.orchestrator.NotificationEnums.NotificationPriority;
+import com.manacommunity.api.notification.orchestrator.UnifiedNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +21,7 @@ import java.util.List;
 public class ParcelService {
 
     private final ParcelLogRepository repo;
+    private final ObjectProvider<UnifiedNotificationService> notificationServiceProvider;
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
@@ -35,7 +42,31 @@ public class ParcelService {
             .notes(req.notes())
             .build());
         log.info("[Parcel] received id={} flat={} otp={}", parcel.getId(), req.flatNumber(), otp);
-        // TODO: integrate with notification service to send OTP to resident
+
+        // Dispatch OTP pickup notification to resident
+        if (parcel.getResidentUserId() != null) {
+            try {
+                UnifiedNotificationService notif = notificationServiceProvider.getIfAvailable();
+                if (notif != null) {
+                    notif.orchestrate(UnifiedNotificationRequest.builder()
+                            .recipientUserId(parcel.getResidentUserId())
+                            .category(NotificationCategory.GATE_ACCESS)
+                            .priority(NotificationPriority.HIGH)
+                            .title("Parcel Arrived at Gate")
+                            .body(String.format("Parcel from %s (%s) is at the gate. Show OTP %s to collect.",
+                                    req.courierName() != null ? req.courierName() : "Courier",
+                                    req.senderName() != null ? req.senderName() : "Sender",
+                                    otp))
+                            .data(Map.of("parcelId", parcel.getId(), "otp", otp, "flatNumber", req.flatNumber()))
+                            .actionUrl("/resident/parcels/" + parcel.getId())
+                            .build());
+                    parcel.setStatus(ParcelStatus.NOTIFIED);
+                    parcel = repo.save(parcel);
+                }
+            } catch (Exception e) {
+                log.warn("[Parcel] Failed to dispatch pickup notification for parcel {}: {}", parcel.getId(), e.getMessage());
+            }
+        }
         return parcel;
     }
 

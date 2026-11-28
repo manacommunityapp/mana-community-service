@@ -247,9 +247,13 @@ public class CommunityManagerService {
     private CommunityManagerSnapshot.VendorContractStats buildVendorContracts(Long communityId) {
         try {
             long activeVendors = vendorRepo.findByActiveTrueOrderByNameAsc().size();
-            // TODO: Vendor entity has no contractExpiryDate/contractEndDate field.
-            // Add that field to Vendor entity and filter here once available.
-            return new CommunityManagerSnapshot.VendorContractStats(activeVendors, 0L, 0L);
+            LocalDate today = LocalDate.now();
+            LocalDate thirtyDaysLater = today.plusDays(30);
+
+            long expiredContracts = vendorRepo.countByActiveTrueAndContractEndDateBefore(today);
+            long expiringSoon = vendorRepo.countByActiveTrueAndContractEndDateBetween(today, thirtyDaysLater);
+
+            return new CommunityManagerSnapshot.VendorContractStats(activeVendors, expiringSoon, expiredContracts);
         } catch (Exception e) {
             log.warn("Could not compute vendor contract stats for community {}: {}", communityId, e.getMessage());
             return new CommunityManagerSnapshot.VendorContractStats(0, 0, 0);

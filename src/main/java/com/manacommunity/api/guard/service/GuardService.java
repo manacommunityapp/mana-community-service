@@ -2,6 +2,7 @@ package com.manacommunity.api.guard.service;
 
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.guard.dto.*;
 import com.manacommunity.api.guard.entity.GuardProfile;
 import com.manacommunity.api.guard.entity.GuardShift;
@@ -166,6 +167,20 @@ public class GuardService {
         return toShiftResponse(shiftRepository.save(shift));
     }
 
+    public static final double DEFAULT_GATE_GEOFENCE_METERS = 100.0;
+    public static final double MIN_SELFIE_LIVENESS_SCORE = 0.75;
+
+    public record GuardClockInVerification(
+            double guardLat,
+            double guardLon,
+            double gateLat,
+            double gateLon,
+            double maxRadiusMeters,
+            boolean mockLocationDetected,
+            boolean selfieBiometricVerified,
+            double livenessScore
+    ) {}
+
     @Transactional
     public GuardShiftResponse checkInShift(Long shiftId) {
         GuardShift shift = shiftRepository.findById(shiftId)
@@ -174,6 +189,56 @@ public class GuardService {
         shift.setStatus(GuardShift.ShiftStatus.IN_PROGRESS);
         shift.setCheckInTime(LocalDateTime.now());
         return toShiftResponse(shiftRepository.save(shift));
+    }
+
+    /**
+     * Enforces GPS geofencing, anti-mock-location checks, and selfie/biometric liveness
+     * before transitioning a guard shift to IN_PROGRESS.
+     */
+    @Transactional
+    public GuardShiftResponse checkInShift(Long shiftId, GuardClockInVerification verification) {
+        if (verification == null) {
+            throw new InvalidInputException("Clock-in verification payload is required");
+        }
+        if (verification.mockLocationDetected()) {
+            throw new InvalidInputException("Clock-in blocked: mock GPS / location spoofing detected on guard device");
+        }
+        double allowedRadius = verification.maxRadiusMeters() > 0
+                ? verification.maxRadiusMeters()
+                : DEFAULT_GATE_GEOFENCE_METERS;
+        double distanceMeters = haversineMeters(
+                verification.guardLat(), verification.guardLon(),
+                verification.gateLat(), verification.gateLon());
+        if (distanceMeters > allowedRadius) {
+            throw new InvalidInputException(String.format(
+                    "Clock-in blocked: guard is %.1fm away from gate geofence (max allowed %.1fm)",
+                    distanceMeters, allowedRadius));
+        }
+        if (!verification.selfieBiometricVerified() || verification.livenessScore() < MIN_SELFIE_LIVENESS_SCORE) {
+            throw new UnauthorizedActionException(
+                    "Selfie/biometric liveness check failed for guard shift clock-in");
+        }
+
+        GuardShift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new ResourceNotFoundException("GuardShift", shiftId));
+        shift.setStatus(GuardShift.ShiftStatus.IN_PROGRESS);
+        shift.setCheckInTime(LocalDateTime.now());
+        String geoNote = String.format("[Geofence verified: %.1fm from gate, liveness=%.2f]",
+                distanceMeters, verification.livenessScore());
+        shift.setNotes(shift.getNotes() == null || shift.getNotes().isBlank()
+                ? geoNote
+                : shift.getNotes() + " " + geoNote);
+        return toShiftResponse(shiftRepository.save(shift));
+    }
+
+    public static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0 - a));
     }
 
     @Transactional

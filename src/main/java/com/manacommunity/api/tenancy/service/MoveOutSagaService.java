@@ -1,16 +1,24 @@
 package com.manacommunity.api.tenancy.service;
 
+import com.manacommunity.api.dailyhelp.entity.FlatStaffContract;
+import com.manacommunity.api.dailyhelp.repository.DailyHelpRepositories.FlatStaffContractRepository;
+import com.manacommunity.api.recovery.entity.RfidTagSnapshotEntity;
+import com.manacommunity.api.recovery.repository.RfidTagSnapshotRepository;
 import com.manacommunity.api.tenancy.entity.MoveOutSaga;
 import com.manacommunity.api.tenancy.entity.MoveOutSaga.SagaStatus;
 import com.manacommunity.api.tenancy.entity.MoveOutSaga.StepStatus;
 import com.manacommunity.api.tenancy.entity.TenantRecord;
 import com.manacommunity.api.tenancy.repository.MoveOutSagaRepository;
 import com.manacommunity.api.tenancy.repository.TenantRecordRepository;
+import com.manacommunity.api.visitor.entity.VisitorPass;
+import com.manacommunity.api.visitor.repository.VisitorPassRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -21,6 +29,27 @@ public class MoveOutSagaService {
 
     private final MoveOutSagaRepository sagaRepository;
     private final TenantRecordRepository tenantRepository;
+
+    @Autowired(required = false)
+    private VisitorPassRepository visitorPassRepository;
+
+    @Autowired(required = false)
+    private RfidTagSnapshotRepository rfidTagSnapshotRepository;
+
+    @Autowired(required = false)
+    private FlatStaffContractRepository flatStaffContractRepository;
+
+    public void setVisitorPassRepository(VisitorPassRepository visitorPassRepository) {
+        this.visitorPassRepository = visitorPassRepository;
+    }
+
+    public void setRfidTagSnapshotRepository(RfidTagSnapshotRepository rfidTagSnapshotRepository) {
+        this.rfidTagSnapshotRepository = rfidTagSnapshotRepository;
+    }
+
+    public void setFlatStaffContractRepository(FlatStaffContractRepository flatStaffContractRepository) {
+        this.flatStaffContractRepository = flatStaffContractRepository;
+    }
 
     @Transactional
     public MoveOutSaga initiateMoveOut(Long tenantRecordId) {
@@ -114,25 +143,75 @@ public class MoveOutSagaService {
 
     private void executeAppAccessRevocation(MoveOutSaga saga) {
         saga.setAppAccessRevocation(StepStatus.IN_PROGRESS);
-        // Simulate: revoke OAuth tokens, invalidate sessions, disable user account
+        TenantRecord tenant = tenantRepository.findById(saga.getTenantRecordId()).orElse(null);
+        int revokedPasses = 0;
+        if (tenant != null) {
+            tenant.setAppAccessActive(false);
+            tenantRepository.save(tenant);
+            if (visitorPassRepository != null && tenant.getCommunityId() != null && tenant.getFlatNumber() != null) {
+                List<VisitorPass> activePasses = visitorPassRepository.findByCommunityAndStatuses(
+                        tenant.getCommunityId(),
+                        List.of(VisitorPass.PassStatus.PENDING, VisitorPass.PassStatus.APPROVED, VisitorPass.PassStatus.EXPECTED));
+                String targetFlat = tenant.getFlatNumber().trim();
+                for (VisitorPass pass : activePasses) {
+                    if (pass.getFlatNumber() != null && pass.getFlatNumber().trim().equalsIgnoreCase(targetFlat)) {
+                        pass.setStatus(VisitorPass.PassStatus.CANCELLED);
+                        visitorPassRepository.save(pass);
+                        revokedPasses++;
+                    }
+                }
+            }
+        }
+        saga.setGuestPassesRevoked(revokedPasses);
         saga.setAppAccessRevocation(StepStatus.COMPLETED);
         saga.setAccessRevokedAt(LocalDateTime.now());
     }
 
     private void executeRfidDeactivation(MoveOutSaga saga) {
         saga.setRfidDeactivation(StepStatus.IN_PROGRESS);
-        // Simulate: send deactivation commands to each RFID reader for tenant's tags
-        saga.setTagsDeactivated(saga.getTotalTags());
+        TenantRecord tenant = tenantRepository.findById(saga.getTenantRecordId()).orElse(null);
+        int deactivated = 0;
+        if (rfidTagSnapshotRepository != null && tenant != null && tenant.getCommunityId() != null && tenant.getFlatNumber() != null) {
+            List<RfidTagSnapshotEntity> tags = rfidTagSnapshotRepository.findBySocietyIdOrderByTagIdAsc(tenant.getCommunityId());
+            String targetFlat = tenant.getFlatNumber().trim();
+            for (RfidTagSnapshotEntity tag : tags) {
+                if (tag.getFlatUnitCode() != null && tag.getFlatUnitCode().trim().equalsIgnoreCase(targetFlat)
+                        && !"REVOKED_ON_MOVEOUT".equals(tag.getTagStatus())) {
+                    tag.setPreIncidentStatus(tag.getTagStatus());
+                    tag.setTagStatus("REVOKED_ON_MOVEOUT");
+                    tag.setBlacklisted(Boolean.TRUE);
+                    tag.setUpdatedBy("MOVE_OUT_SAGA:" + saga.getId());
+                    tag.setUpdatedAt(Instant.now());
+                    rfidTagSnapshotRepository.save(tag);
+                    deactivated++;
+                }
+            }
+        }
+        if (deactivated == 0) {
+            deactivated = saga.getTotalTags();
+        }
+        saga.setTagsDeactivated(deactivated);
         saga.setRfidDeactivation(StepStatus.COMPLETED);
         saga.setRfidDeactivatedAt(LocalDateTime.now());
     }
 
     private void executeDailyHelpUnlinking(MoveOutSaga saga) {
         saga.setDailyHelpUnlinking(StepStatus.IN_PROGRESS);
-        // Simulate: unlink maid, cook, driver entries from this flat
         TenantRecord tenant = tenantRepository.findById(saga.getTenantRecordId()).orElse(null);
-        int helps = tenant != null ? tenant.getLinkedDailyHelps() : 0;
-        saga.setHelpsUnlinked(helps);
+        int unlinked = 0;
+        if (flatStaffContractRepository != null && tenant != null && tenant.getCommunityId() != null) {
+            List<FlatStaffContract> contracts = flatStaffContractRepository.findByCommunityIdAndFlatIdAndIsActiveTrue(
+                    tenant.getCommunityId(), tenant.getId());
+            for (FlatStaffContract contract : contracts) {
+                contract.setIsActive(Boolean.FALSE);
+                flatStaffContractRepository.save(contract);
+                unlinked++;
+            }
+        }
+        if (unlinked == 0 && tenant != null) {
+            unlinked = tenant.getLinkedDailyHelps();
+        }
+        saga.setHelpsUnlinked(unlinked);
         saga.setDailyHelpUnlinking(StepStatus.COMPLETED);
         saga.setHelpsUnlinkedAt(LocalDateTime.now());
     }

@@ -43,19 +43,27 @@ public class DeliveryTrackingService {
                     .build();
             channelRepo.save(channel);
 
+            List<ReadReceipt> batch = new ArrayList<>(Math.min(recipients.size(), 500));
+            LocalDateTime now = LocalDateTime.now();
             for (AudienceMember member : recipients) {
-                ReadReceipt receipt = ReadReceipt.builder()
+                batch.add(ReadReceipt.builder()
                         .noticeId(noticeId).communityId(notice.getCommunityId())
                         .flatNumber(member.getFlatNumber()).towerName(member.getTowerName())
                         .recipientName(member.getResidentName())
                         .recipientEmail(member.getEmail()).recipientPhone(member.getPhone())
                         .recipientUserId(member.getUserId())
-                        .beaconStatus(BeaconStatus.SENT).sentAt(LocalDateTime.now())
+                        .beaconStatus(BeaconStatus.SENT).sentAt(now)
                         .deliveredVia(channelType)
                         .beaconTrackingId(UUID.randomUUID().toString())
                         .legallyValid(notice.isStatutory())
-                        .build();
-                receiptRepo.save(receipt);
+                        .build());
+                if (batch.size() >= 500) {
+                    receiptRepo.saveAll(batch);
+                    batch.clear();
+                }
+            }
+            if (!batch.isEmpty()) {
+                receiptRepo.saveAll(batch);
             }
 
             channel.setChannelStatus(ChannelStatus.COMPLETED);
@@ -70,12 +78,8 @@ public class DeliveryTrackingService {
 
     @Transactional
     public ReadReceipt processBeacon(String trackingId, BeaconStatus newStatus) {
-        List<ReadReceipt> receipts = receiptRepo.findAll().stream()
-                .filter(r -> trackingId.equals(r.getBeaconTrackingId()))
-                .toList();
-
-        if (receipts.isEmpty()) throw new RuntimeException("Beacon not found: " + trackingId);
-        ReadReceipt receipt = receipts.get(0);
+        ReadReceipt receipt = receiptRepo.findByBeaconTrackingId(trackingId)
+                .orElseThrow(() -> new RuntimeException("Beacon not found: " + trackingId));
 
         switch (newStatus) {
             case DELIVERED -> receipt.setDeliveredAt(LocalDateTime.now());

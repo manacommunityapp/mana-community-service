@@ -26,11 +26,32 @@ public class PrepaidMeterDeductionService {
     private static final int MAX_RETRIES = 3;
 
     @Transactional
+    public PrepaidMeterAccount switchTariffSource(Long meterId, String tariffSource) {
+        if (!"GRID".equalsIgnoreCase(tariffSource) && !"DG_BACKUP".equalsIgnoreCase(tariffSource)) {
+            throw new IllegalArgumentException("Unsupported tariff source: " + tariffSource);
+        }
+        PrepaidMeterAccount account = accountRepository.findByMeterIdForUpdate(meterId)
+                .orElseThrow(() -> new IllegalArgumentException("No prepaid account for meter: " + meterId));
+        account.setActiveTariffSource(tariffSource.toUpperCase(java.util.Locale.ROOT));
+        return accountRepository.save(account);
+    }
+
+    @Transactional
     @Retryable(retryFor = ObjectOptimisticLockingFailureException.class,
                maxAttempts = MAX_RETRIES,
                backoff = @Backoff(delay = 50, multiplier = 2))
     public DeductionResult processTelemetryReading(Long meterId, long sequenceNumber,
                                                     BigDecimal deltaConsumption, Instant readingTimestamp) {
+        return processTelemetryReading(meterId, sequenceNumber, deltaConsumption, readingTimestamp, null);
+    }
+
+    @Transactional
+    @Retryable(retryFor = ObjectOptimisticLockingFailureException.class,
+               maxAttempts = MAX_RETRIES,
+               backoff = @Backoff(delay = 50, multiplier = 2))
+    public DeductionResult processTelemetryReading(Long meterId, long sequenceNumber,
+                                                    BigDecimal deltaConsumption, Instant readingTimestamp,
+                                                    String overrideTariffSource) {
         PrepaidMeterAccount account = accountRepository.findByMeterIdForUpdate(meterId)
                 .orElseThrow(() -> new IllegalArgumentException("No prepaid account for meter: " + meterId));
 
@@ -50,7 +71,14 @@ public class PrepaidMeterDeductionService {
             return new DeductionResult(meterId, true, "Zero consumption", BigDecimal.ZERO, account.getBalance());
         }
 
-        BigDecimal cost = deltaConsumption.multiply(account.getRatePerUnit()).setScale(4, RoundingMode.HALF_UP);
+        String effectiveSource = overrideTariffSource != null && !overrideTariffSource.isBlank()
+                ? overrideTariffSource.toUpperCase(java.util.Locale.ROOT)
+                : (account.getActiveTariffSource() != null ? account.getActiveTariffSource() : "GRID");
+        BigDecimal applicableRate = "DG_BACKUP".equals(effectiveSource) && account.getDgRatePerUnit() != null
+                ? account.getDgRatePerUnit()
+                : account.getRatePerUnit();
+
+        BigDecimal cost = deltaConsumption.multiply(applicableRate).setScale(4, RoundingMode.HALF_UP);
         BigDecimal newBalance = account.getBalance().subtract(cost);
 
         account.setBalance(newBalance);
