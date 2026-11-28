@@ -58,6 +58,23 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     long countOrdersWithRefundBetween(@Param("from") OffsetDateTime from,
                                       @Param("to") OffsetDateTime to);
 
+    @Query("SELECT COUNT(DISTINCT p.payerUserId) FROM PaymentOrder p " +
+           "WHERE p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
+           "AND p.createdAt BETWEEN :from AND :to")
+    long countDistinctBuyersBetween(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    @Query("SELECT COUNT(p.payerUserId) FROM PaymentOrder p " +
+           "WHERE p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
+           "AND p.createdAt BETWEEN :from AND :to " +
+           "GROUP BY p.payerUserId HAVING COUNT(p.id) > 1")
+    List<Long> findRepeatBuyerCountsBetween(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    @Query("SELECT COUNT(p) FROM PaymentOrder p " +
+           "WHERE p.referenceType = com.manacommunity.api.payments.model.PaymentReferenceType.AMENITY_BOOKING " +
+           "AND p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
+           "AND p.createdAt BETWEEN :from AND :to")
+    long countCompletedAmenityBookingsBetween(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
     @Query("SELECT p.referenceType, COUNT(p), COALESCE(SUM(p.amount), 0), COUNT(DISTINCT p.payerUserId) FROM PaymentOrder p " +
            "WHERE p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
            "AND p.createdAt BETWEEN :from AND :to GROUP BY p.referenceType")

@@ -42,6 +42,9 @@ public class HealthGuardService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.manacommunity.api.healthguard.sqs.EmergencySosSqsHandler emergencySosSqsHandler;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.payments.service.UnifiedPaymentOrderService> paymentOrderServiceProvider;
+
     public HealthGuardService(
             HealthProfileRepository profileRepository,
             EmergencyContactRepository contactRepository,
@@ -401,6 +404,37 @@ public class HealthGuardService {
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         booking.setStatus(AmbulanceBookingStatus.CANCELLED);
         return toAmbulanceDto(ambulanceRepository.save(booking));
+    }
+
+    /**
+     * Wires paid health consultations and bookings to UnifiedPaymentOrderService.
+     * Generates a tracked PaymentOrder record before redirecting to PG checkout.
+     */
+    @Transactional
+    public com.manacommunity.api.payments.entity.PaymentOrder createHealthBookingPaymentOrder(
+            Long userId, Long communityId, Long bookingId, java.math.BigDecimal amount) {
+        if (paymentOrderServiceProvider == null) {
+            log.warn("[HealthPayment] PaymentOrderServiceProvider not injected");
+            return null;
+        }
+        com.manacommunity.api.payments.service.UnifiedPaymentOrderService paymentService =
+                paymentOrderServiceProvider.getIfAvailable();
+        if (paymentService == null) {
+            log.warn("[HealthPayment] UnifiedPaymentOrderService bean unavailable");
+            return null;
+        }
+        String idempotencyKey = "HEALTH_BOOKING_" + bookingId + "_" + userId;
+        com.manacommunity.api.payments.dto.CreatePaymentOrderRequest orderReq =
+                com.manacommunity.api.payments.dto.CreatePaymentOrderRequest.builder()
+                        .communityId(communityId)
+                        .idempotencyKey(idempotencyKey)
+                        .referenceType(com.manacommunity.api.payments.model.PaymentReferenceType.HEALTH_BOOKING)
+                        .referenceId(bookingId)
+                        .payerUserId(userId)
+                        .amount(amount != null ? amount : java.math.BigDecimal.valueOf(500.00))
+                        .currency("INR")
+                        .build();
+        return paymentService.createOrder(orderReq);
     }
 
     // ── Mappers ──

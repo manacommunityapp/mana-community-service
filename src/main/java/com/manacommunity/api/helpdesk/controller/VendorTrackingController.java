@@ -7,20 +7,25 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-// TODO: Integrate with real-time GPS push (WebSocket or SSE) for live tracking.
 @RestController
 @RequestMapping("/api/helpdesk/tracking")
 @RequiredArgsConstructor
+@Slf4j
 public class VendorTrackingController {
 
     private final VendorTrackingSessionRepository repo;
     private final LoggedInUserService loggedInUserService;
+    private final ObjectProvider<SimpMessagingTemplate> messagingTemplateProvider;
 
     /**
      * Returns the vendor's last known location for a booking.
@@ -40,12 +45,15 @@ public class VendorTrackingController {
 
     /**
      * Vendor/technician pushes their current GPS coordinates.
-     * TODO: Add authentication to verify caller is the assigned vendor.
+     * Verified via authentication and broadcast to real-time WebSocket subscriber topic.
      */
     @PostMapping("/update")
     public ResponseEntity<VendorTrackingSession> updateLocation(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody LocationUpdateRequest request) {
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required to update vendor GPS location");
+        }
         AppUser caller = loggedInUserService.resolve(principal);
         VendorTrackingSession session = repo.save(VendorTrackingSession.builder()
                 .communityId(caller.getCommunity() != null ? caller.getCommunity().getId() : 0L)
@@ -55,6 +63,24 @@ public class VendorTrackingController {
                 .longitude(request.getLongitude())
                 .accuracy(request.getAccuracy())
                 .build());
+
+        // Broadcast real-time GPS coordinates to resident subscriber topic
+        try {
+            SimpMessagingTemplate template = messagingTemplateProvider.getIfAvailable();
+            if (template != null) {
+                template.convertAndSend("/topic/helpdesk/tracking/" + request.getBookingId(), Map.of(
+                        "bookingId", request.getBookingId(),
+                        "vendorId", caller.getId(),
+                        "latitude", request.getLatitude(),
+                        "longitude", request.getLongitude(),
+                        "accuracy", request.getAccuracy() != null ? request.getAccuracy() : 0.0,
+                        "recordedAt", session.getRecordedAt().toString()
+                ));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to broadcast live vendor GPS over WebSocket: {}", e.getMessage());
+        }
+
         return ResponseEntity.ok(session);
     }
 

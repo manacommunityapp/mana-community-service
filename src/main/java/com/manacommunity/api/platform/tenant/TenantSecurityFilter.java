@@ -1,11 +1,15 @@
 package com.manacommunity.api.platform.tenant;
 
+import com.manacommunity.api.security.CommunityMembershipService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,16 +19,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Resolves the community (tenant) context from the authenticated user's JWT claims.
- *
- * <p><strong>Security invariant</strong>: the {@code X-Community-ID} header is a
- * <em>context-selection hint</em>, not a permission grant. If a request includes the
- * header with a community ID that does not match the authenticated user's membership,
- * it is rejected with 403 — the header never allows access to another community's data.
- *
- * <p>Runs AFTER Spring Security's JWT filter (Order 200) so the SecurityContext is
- * already populated when this filter executes. Cleared in finally to avoid leaking
- * across pooled threads.
+ * Resolves the community (tenant) context from the authenticated user's JWT claims
+ * or an authorized {@code X-Community-ID} header validated against {@link CommunityMembershipService}.
  */
 @Slf4j
 @Component
@@ -32,6 +28,20 @@ import java.io.IOException;
 public class TenantSecurityFilter extends OncePerRequestFilter {
 
     private static final String COMMUNITY_ID_HEADER = "X-Community-ID";
+
+    @Autowired(required = false)
+    private CommunityMembershipService membershipService;
+
+    @Autowired(required = false)
+    private AppUserRepository userRepository;
+
+    public void setMembershipService(CommunityMembershipService membershipService) {
+        this.membershipService = membershipService;
+    }
+
+    public void setUserRepository(AppUserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -45,13 +55,15 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                 return;
             }
 
-            Long jwtCommunityId = principal.getCommunityId();
+            Long activeCommunityId = principal.getCommunityId();
 
             String headerValue = request.getHeader(COMMUNITY_ID_HEADER);
             if (headerValue != null && !headerValue.isBlank()) {
                 try {
                     Long requestedCommunityId = Long.parseLong(headerValue.trim());
-                    if (jwtCommunityId == null || !jwtCommunityId.equals(requestedCommunityId)) {
+                    boolean sameAsToken = activeCommunityId != null && activeCommunityId.equals(requestedCommunityId);
+                    boolean authorizedMembership = !sameAsToken && isAuthorizedMembership(principal, requestedCommunityId);
+                    if (!sameAsToken && !authorizedMembership) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");
                         response.getWriter().write(
@@ -59,6 +71,7 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                                 "\"detail\":\"Requested community does not match your membership\"}");
                         return;
                     }
+                    activeCommunityId = requestedCommunityId;
                 } catch (NumberFormatException e) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     response.setContentType("application/json");
@@ -67,13 +80,24 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                 }
             }
 
-            if (jwtCommunityId != null) {
-                TenantContextHolder.set(jwtCommunityId);
+            if (activeCommunityId != null) {
+                TenantContextHolder.set(activeCommunityId);
             }
 
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
         }
+    }
+
+    private boolean isAuthorizedMembership(UserPrincipal principal, Long requestedCommunityId) {
+        if (membershipService == null || requestedCommunityId == null) {
+            return false;
+        }
+        AppUser user = principal.getUser();
+        if (user == null && userRepository != null && principal.getId() != null) {
+            user = userRepository.findById(principal.getId()).orElse(null);
+        }
+        return user != null && membershipService.isUserAuthorizedForCommunity(user, requestedCommunityId);
     }
 }

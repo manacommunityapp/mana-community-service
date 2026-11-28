@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
-// TODO: Add scheduler job to generate helpdesk tickets when next_due_date is reached.
 @RestController
 @RequestMapping("/api/maintenance/schedules")
 @RequiredArgsConstructor
@@ -25,6 +24,17 @@ public class MaintenanceScheduleController {
 
     private final MaintenanceScheduleRepository repo;
     private final LoggedInUserService loggedInUserService;
+    private final com.manacommunity.api.maintenance.scheduler.MaintenanceScheduleAutoTicketScheduler ticketScheduler;
+
+    @PostMapping("/trigger-due-tickets")
+    public ResponseEntity<java.util.Map<String, Object>> triggerDueTickets() {
+        int count = ticketScheduler.generateDueTickets();
+        return ResponseEntity.ok(java.util.Map.of(
+                "status", "SUCCESS",
+                "ticketsGenerated", count,
+                "timestamp", java.time.LocalDateTime.now()
+        ));
+    }
 
     @GetMapping
     public ResponseEntity<List<MaintenanceSchedule>> getSchedules(

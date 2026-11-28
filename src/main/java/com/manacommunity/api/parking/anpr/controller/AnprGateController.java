@@ -38,24 +38,33 @@ public class AnprGateController {
     private final AnprGateService anprGateService;
     private final LoggedInUserService loggedInUserService;
 
+    @org.springframework.beans.factory.annotation.Value("${mana.anpr.api-key:}")
+    private String configuredApiKey;
+
     // ── Webhook (called by ANPR Python service) ───────────────────────────────
 
     /**
      * POST /api/parking/anpr/webhook
      *
      * Receives a plate recognition event from mana-community-anpr-services.
-     * Secured via X-ANPR-API-Key header (validated by Spring Security filter or @RequestHeader check).
+     * Secured via X-ANPR-API-Key header (validated against configured secret).
      *
      * Returns the barrier action decision (OPEN / HOLD / DENY) so the Python service
      * can forward it to the barrier controller.
      */
     @PostMapping("/webhook")
-    public ResponseEntity<AnprWebhookResponse> handleWebhook(
+    public ResponseEntity<?> handleWebhook(
             @RequestHeader(value = "X-ANPR-API-Key", required = false) String apiKey,
             @RequestHeader(value = "X-Community-Id") Long communityId,
             @RequestBody AnprWebhookPayload payload
     ) {
-        // TODO: validate apiKey against configured secret (application.properties)
+        if (configuredApiKey != null && !configuredApiKey.isBlank()) {
+            if (apiKey == null || !configuredApiKey.equals(apiKey)) {
+                log.warn("Unauthorized ANPR webhook attempt: invalid or missing API key for gate={}", payload.gateId());
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                        .body(java.util.Map.of("error", "Invalid or missing X-ANPR-API-Key"));
+            }
+        }
         log.info("ANPR webhook received: plate={} gate={} confidence={} communityId={}",
                 payload.plateNumber(), payload.gateId(), payload.confidence(), communityId);
 

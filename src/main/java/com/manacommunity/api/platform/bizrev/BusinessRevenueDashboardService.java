@@ -81,13 +81,11 @@ public class BusinessRevenueDashboardService {
 
         // 5. Vendors
         long activeVendors = safeCount(() -> (long) vendorRepo.findByActiveTrueOrderByNameAsc().size());
-        // TODO: Vendor entity has no createdAt-based monthly filter; use 0
-        long newVendors = 0L;
+        long newVendors = safeCount(() -> vendorRepo.countByCreatedAtBetween(fromDt.toLocalDateTime(), toDt.toLocalDateTime()));
 
         // 6. Completed orders — count SUCCESS payments as proxy
         long completedOrders = computePlatformCount(PaymentOrderStatus.SUCCESS, fromDt, toDt);
-        // TODO: amenity bookings table has no payment link yet
-        long completedBookings = 0L;
+        long completedBookings = safeCount(() -> paymentOrderRepo.countCompletedAmenityBookingsBetween(fromDt, toDt));
 
         // 7. Payment failure rate
         long totalPayments = computePlatformTotalCount(fromDt, toDt);
@@ -100,10 +98,10 @@ public class BusinessRevenueDashboardService {
             ? refundAmt.multiply(BigDecimal.valueOf(100)).divide(gmv, 2, RoundingMode.HALF_UP).doubleValue()
             : 0.0;
 
-        // 9. Repeat purchase rate — TODO: needs DISTINCT userId GROUP BY; placeholder
-        long repeatBuyers = 0L;
-        long totalBuyers = 0L;
-        double repeatRate = 0.0;
+        // 9. Repeat purchase rate — computed from distinct users with >1 successful transaction
+        long totalBuyers = safeCount(() -> paymentOrderRepo.countDistinctBuyersBetween(fromDt, toDt));
+        long repeatBuyers = safeCount(() -> (long) paymentOrderRepo.findRepeatBuyerCountsBetween(fromDt, toDt).size());
+        double repeatRate = totalBuyers > 0 ? (repeatBuyers * 100.0 / totalBuyers) : 0.0;
 
         // 10. Vendor settlement delay — no settlement entity with delay yet
         double avgSettlementDelay = 0.0;

@@ -14,6 +14,10 @@ public interface MarketSellerRepository extends JpaRepository<MarketSellerProfil
 
     Optional<MarketSellerProfile> findByUserId(Long userId);
 
+    Optional<MarketSellerProfile> findByUserIdAndCommunityId(Long userId, Long communityId);
+
+    List<MarketSellerProfile> findByUserIdAndIsActiveTrue(Long userId);
+
     Page<MarketSellerProfile> findByCommunityIdAndIsActiveTrue(Long communityId, Pageable pageable);
 
     List<MarketSellerProfile> findByKycStatus(MarketSellerProfile.KycStatus kycStatus);
