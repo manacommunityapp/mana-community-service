@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "smart_meters",
-        uniqueConstraints = @UniqueConstraint(name = "uk_meter_serial", columnNames = {"meter_serial"}))
+@Table(name = "community_smart_meters",
+        uniqueConstraints = @UniqueConstraint(name = "uk_community_smart_meter_serial", columnNames = {"meter_serial"}))
 @Data
 @Builder
 @NoArgsConstructor

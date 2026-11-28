@@ -2,6 +2,7 @@ package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.Community;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +18,9 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     // Active (not soft-deleted) only — used for the signup dropdown and admin list.
     List<Community> findByActiveTrueOrderByNameAsc();
     List<Community> findByActiveTrueAndTypeIgnoreCaseOrderByNameAsc(String type);
+
+    long countByActiveTrue();
+
+    @Query("SELECT COUNT(DISTINCT LOWER(TRIM(c.city))) FROM Community c WHERE c.active = true AND c.city IS NOT NULL AND TRIM(c.city) <> ''")
+    long countDistinctActiveCities();
 }

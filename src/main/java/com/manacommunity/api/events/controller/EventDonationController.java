@@ -23,7 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/donations")
+@RequestMapping({"/api/events/donations", "/events/donations", "/api/events/{eventId}/donations", "/events/{eventId}/donations"})
 @RequiredArgsConstructor
 public class EventDonationController {
 
@@ -31,31 +31,37 @@ public class EventDonationController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAuthority('View Events') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<EventDonationResponse>> getAll(
-            @RequestParam(required = false) Long eventId,
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
+            @RequestParam(name = "eventId", required = false) Long queryEventId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long eventId = pathEventId != null ? pathEventId : queryEventId;
         if (eventId != null) {
             return ResponseEntity.ok(donationService.getByEvent(eventId));
         }
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(List.of());
         return ResponseEntity.ok(donationService.getByCommunity(communityId));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<EventDonationResponse> create(
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
             @Valid @RequestBody EventDonationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (req.getEventId() == null && pathEventId != null) {
+            req.setEventId(pathEventId);
+        }
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(donationService.create(req, user, user.getCommunity()));
+                .body(donationService.create(req, user, user != null ? user.getCommunity() : null));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<EventDonationResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventDonationRequest req) {
@@ -63,14 +69,14 @@ public class EventDonationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         donationService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/bulk-upload/template")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<byte[]> downloadTemplate() {
         byte[] bytes = donationService.generateUploadTemplate();
         return ResponseEntity.ok()
@@ -81,7 +87,7 @@ public class EventDonationController {
     }
 
     @PostMapping(value = "/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<byte[]> bulkUpload(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal) {

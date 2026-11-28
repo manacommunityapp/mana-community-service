@@ -24,6 +24,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     long countByCommunityIdAndStatus(Long communityId, String status);
 
+    long countByResidentIdAndStatus(Long residentId, String status);
+
     java.util.Optional<Invoice> findByIdAndCommunityId(Long id, Long communityId);
 
     List<Invoice> findByCommunityId(Long communityId);

@@ -37,11 +37,21 @@ public class SportsDashboardService {
     private final SportsEventRepository eventRepo;
     private final SportsEventRegistrationRepository registrationRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SportsDashboardCacheService dashboardCacheService;
+
     @Transactional(readOnly = true)
     public Stats getStats(AppUser user) {
         boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (dashboardCacheService != null) {
+            return dashboardCacheService.getStats(user.getId(), isSuperAdmin, communityId,
+                    () -> loadStatsFromDb(user, isSuperAdmin, communityId));
+        }
+        return loadStatsFromDb(user, isSuperAdmin, communityId);
+    }
 
+    private Stats loadStatsFromDb(AppUser user, boolean isSuperAdmin, Long communityId) {
         List<SportsEvent> openEvents = isSuperAdmin
                 ? eventService.getAllOpenEvents()
                 : (communityId != null ? eventService.getOpenEvents(communityId) : List.of());
@@ -69,6 +79,13 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public List<UpcomingEvent> getUpcomingEvents(AppUser user) {
+        if (dashboardCacheService != null) {
+            return dashboardCacheService.getUpcomingEvents(user.getId(), () -> loadUpcomingEventsFromDb(user));
+        }
+        return loadUpcomingEventsFromDb(user);
+    }
+
+    private List<UpcomingEvent> loadUpcomingEventsFromDb(AppUser user) {
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
         return myEvents.stream()
                 .map(this::toUpcomingEvent)

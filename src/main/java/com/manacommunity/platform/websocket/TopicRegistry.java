@@ -44,10 +44,12 @@ public final class TopicRegistry {
         // Resource topics (community-membership check via resource)
         register("/topic/auction/(\\d+)(?:/.*)?$",      TopicPermission.COMMUNITY_MEMBER);
         register("/topic/match/(\\d+)(?:/.*)?$",        TopicPermission.COMMUNITY_MEMBER);
+        register("/topic/matches/(\\d+)(?:/.*)?$",      TopicPermission.COMMUNITY_MEMBER);
         register("/topic/kitty-games/(\\d+)(?:/.*)?$",  TopicPermission.COMMUNITY_MEMBER);
 
         // Admin-only topics
         register("/topic/admin(?:/.*)?$",               TopicPermission.ADMIN_ROLE);
+        register("/topic/access(?:/.*)?$",              TopicPermission.ADMIN_ROLE);
 
         // Platform ops (super-admin live feed)
         register("/topic/platform/ops(?:/.*)?$",        TopicPermission.ADMIN_ROLE);

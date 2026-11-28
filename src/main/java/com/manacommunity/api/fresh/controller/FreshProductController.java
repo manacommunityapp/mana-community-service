@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/fresh")
+@RequestMapping({"/api/v1/fresh", "/api/fresh", "/fresh"})
 @RequiredArgsConstructor
 public class FreshProductController {
 
@@ -36,19 +36,26 @@ public class FreshProductController {
     // ── Products ──────────────────────────────────────────────────────────────
 
     @GetMapping("/products")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<FreshProduct>>> listProducts(
+            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Long communityId = principal.getCommunityId();
-        return ResponseEntity.ok(ApiResponse.ok(
-                productRepository.findByCommunityIdAndActiveTrueOrderByNameAsc(communityId)));
+        Long targetCommunityId = communityId != null ? communityId : (principal != null ? principal.getCommunityId() : null);
+        List<FreshProduct> products = targetCommunityId != null
+                ? productRepository.findByCommunityIdAndActiveTrueOrderByNameAsc(targetCommunityId)
+                : productRepository.findByActiveTrueOrderByNameAsc();
+        return ResponseEntity.ok(ApiResponse.ok(products));
     }
 
     @GetMapping("/products/{id}")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<FreshProduct>> getProduct(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null) {
+            return productRepository.findById(id)
+                    .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                    .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
+                    .orElse(ResponseEntity.notFound().build());
+        }
         return findProductForCaller(id, principal)
                 .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
                 .orElse(ResponseEntity.notFound().build());

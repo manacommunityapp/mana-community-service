@@ -1,4 +1,4 @@
-CREATE TABLE outbox_event (
+CREATE TABLE IF NOT EXISTS outbox_event (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_type  VARCHAR(100)  NOT NULL,
     aggregate_id    VARCHAR(255)  NOT NULL,
@@ -13,4 +13,4 @@ CREATE TABLE outbox_event (
     CONSTRAINT chk_outbox_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
 );
 
-CREATE INDEX idx_outbox_pending ON outbox_event(created_at) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_event(created_at) WHERE status = 'PENDING';

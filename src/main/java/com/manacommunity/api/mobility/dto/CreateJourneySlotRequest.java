@@ -16,4 +16,11 @@ public class CreateJourneySlotRequest {
     @Min(1) @Max(30) private int seatCapacity = 4;
     @Min(0) @Max(30) private int luggageCapacity = 0;
     @DecimalMin("0") private BigDecimal pricePerSeat = BigDecimal.ZERO;
+    private Double originLat;
+    private Double originLng;
+    private Double destLat;
+    private Double destLng;
+    @DecimalMin("0.5") @DecimalMax("50.0") private Double maxDetourKm;
+    private Boolean allowCrossCommunity;
+    private Boolean autoGenerate;
 }

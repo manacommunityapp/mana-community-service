@@ -11,9 +11,9 @@ public class HsReworkRequest {
     @Column(name = "community_id", nullable = false) private Long communityId;
     @Column(name = "user_id", nullable = false) private Long userId;
     @Column(nullable = false) private String reason;
-    @Column(nullable = false, columnDefinition = "hs_rework_status") private String status = "REQUESTED";
+    @Builder.Default @Column(nullable = false, columnDefinition = "hs_rework_status") private String status = "REQUESTED";
     @Column(name = "rescheduled_at") private Instant rescheduledAt;
     @Column(name = "resolved_at") private Instant resolvedAt;
     private String notes;
-    @Column(name = "created_at") private Instant createdAt = Instant.now();
+    @Builder.Default @Column(name = "created_at") private Instant createdAt = Instant.now();
 }

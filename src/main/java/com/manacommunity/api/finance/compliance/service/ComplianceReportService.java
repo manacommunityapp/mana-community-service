@@ -193,7 +193,7 @@ public class ComplianceReportService {
 
     // ── Scheduled monthly generation ──────────────────────────────────────────
 
-    @Scheduled(cron = "0 2 1 * *")
+    @Scheduled(cron = "0 0 2 1 * *")
     public void generateScheduledReports() {
         String period = YearMonth.now().minusMonths(1)
                 .format(DateTimeFormatter.ofPattern("yyyy-MM"));

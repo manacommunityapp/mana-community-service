@@ -14,5 +14,5 @@ public class HsBookingRating {
     private Integer punctuality;
     private Integer quality;
     private String comment;
-    @Column(name = "created_at") private Instant createdAt = Instant.now();
+    @Builder.Default @Column(name = "created_at") private Instant createdAt = Instant.now();
 }

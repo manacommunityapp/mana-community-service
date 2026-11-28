@@ -14,4 +14,14 @@ public class CreateJourneyRequest {
     @Min(15) @Max(180) private int timeWindowMinutes = 30;
     @Min(1) @Max(8) private int seats = 1;
     @Min(0) @Max(12) private int luggageCount = 0;
+    private Double pickupLat;
+    private Double pickupLng;
+    private Double destLat;
+    private Double destLng;
+    @DecimalMin("0.5") @DecimalMax("50.0") private Double maxDetourKm;
+    private Boolean allowCrossCommunity;
+    private Boolean autoReserve;
+    private Boolean parentConsentRequired;
+    private String guardianName;
+    private String guardianPhone;
 }

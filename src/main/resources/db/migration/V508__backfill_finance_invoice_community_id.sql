@@ -17,7 +17,7 @@ UPDATE finance_invoice fi
 -- Keep envers audit table in sync if present
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'finance_invoice_aud') THEN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'finance_invoice_aud' AND column_name = 'community_id') THEN
         UPDATE finance_invoice_aud fia
            SET community_id = COALESCE(
                (SELECT fi.community_id FROM finance_invoice fi WHERE fi.id = fia.id),

@@ -26,6 +26,9 @@ public class ElectionController {
     private final ElectionNominationRepository nominationRepo;
     private final ElectionVoteRepository voteRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.governance.service.SecretBallotService secretBallotService;
+
     // ── Positions ─────────────────────────────────────────────────────────────
 
     @GetMapping("/positions")
@@ -140,6 +143,47 @@ public class ElectionController {
                         .<ApiResponse<Void>>body(ApiResponse.error("Already voted"));
             }
         }).orElse(notFound());
+    }
+
+    // ── Tamper-Evident Secret Ballot (Blind Signatures) ──────────────────────
+
+    @GetMapping("/elections/{id}/public-key")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getElectionPublicKey(@PathVariable Long id) {
+        if (secretBallotService == null) return notFound();
+        return ok(secretBallotService.getElectionPublicKey(id));
+    }
+
+    @PostMapping("/elections/{id}/blind-token")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> issueBlindToken(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (secretBallotService == null) return notFound();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long userId = body.containsKey("userId")
+                ? Long.valueOf(body.get("userId").toString())
+                : principal.getUserId();
+        String blindedMessageHex = body.get("blindedMessageHex").toString();
+        return ok(secretBallotService.issueBlindToken(id, flatId, userId, blindedMessageHex));
+    }
+
+    @PostMapping("/elections/{id}/secret-ballot")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> castSecretBallot(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        if (secretBallotService == null) return notFound();
+        Long nominationId = Long.valueOf(body.get("nominationId").toString());
+        String tokenHex = body.get("tokenHex").toString();
+        String unblindedSignatureHex = body.get("unblindedSignatureHex").toString();
+        return ok(secretBallotService.castSecretBallot(id, nominationId, tokenHex, unblindedSignatureHex));
+    }
+
+    @GetMapping("/elections/{id}/audit")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> auditSecretBallots(
+            @PathVariable Long id,
+            @RequestParam(required = false) String receiptCode) {
+        if (secretBallotService == null) return notFound();
+        return ok(secretBallotService.verifyBallotAuditChain(id, receiptCode));
     }
 
     @PutMapping("/elections/{id}/status")

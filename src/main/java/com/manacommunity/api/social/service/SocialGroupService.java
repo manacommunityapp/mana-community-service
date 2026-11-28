@@ -1,8 +1,12 @@
 package com.manacommunity.api.social.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.social.entity.*;
 import com.manacommunity.api.social.repository.*;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -12,8 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +36,26 @@ public class SocialGroupService {
     private final GroupExpenseSplitRepository splitRepo;
     private final SimpMessagingTemplate ws;
 
+    @Autowired(required = false)
+    private AppUserRepository userRepo;
+
+    private String resolveUserName(Long userId) {
+        if (userId == null) return "Member";
+        if (userRepo != null) {
+            return userRepo.findById(userId)
+                    .map(u -> (u.getName() != null && !u.getName().isBlank()) ? u.getName() : "Member #" + userId)
+                    .orElse("Member #" + userId);
+        }
+        return "Member #" + userId;
+    }
+
+    private String resolveUserAvatar(Long userId) {
+        if (userId == null || userRepo == null) return null;
+        return userRepo.findById(userId)
+                .map(AppUser::getProfilePicUrl)
+                .orElse(null);
+    }
+
     public SocialGroup createGroup(Long communityId, Long createdBy, String name, String description,
                                     String groupType, boolean isPrivate, int maxMembers) {
         SocialGroup group = SocialGroup.builder()
@@ -36,9 +63,11 @@ public class SocialGroupService {
                 .createdBy(createdBy)
                 .name(name)
                 .description(description)
-                .groupType(groupType != null ? groupType : "INTEREST")
+                .groupType(groupType != null && !groupType.isBlank() ? groupType : "INTEREST")
                 .isPrivate(isPrivate)
                 .maxMembers(maxMembers > 0 ? maxMembers : 50)
+                .memberCount(1)
+                .isActive(true)
                 .build();
         group = groupRepo.save(group);
         // Creator becomes ADMIN member
@@ -47,32 +76,60 @@ public class SocialGroupService {
                 .userId(createdBy)
                 .role("ADMIN")
                 .build());
+        group.setIsMember(true);
+        return group;
+    }
+
+    @Transactional(readOnly = true)
+    public SocialGroup getGroupById(Long groupId, Long currentUserId) {
+        SocialGroup group = groupRepo.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Social Group", groupId));
+        boolean member = currentUserId != null && memberRepo.existsByGroupIdAndUserId(groupId, currentUserId);
+        group.setIsMember(member);
         return group;
     }
 
     @Transactional(readOnly = true)
     public Page<SocialGroup> getGroupsByCommunity(Long communityId, String groupType, Pageable pageable) {
+        return getGroupsByCommunity(communityId, groupType, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SocialGroup> getGroupsByCommunity(Long communityId, String groupType, Pageable pageable, Long currentUserId) {
+        Page<SocialGroup> page;
         if (groupType != null && !groupType.isBlank()) {
-            return groupRepo.findByCommunityIdAndGroupTypeAndIsActiveTrue(communityId, groupType, pageable);
+            page = groupRepo.findByCommunityIdAndGroupTypeAndIsActiveTrue(communityId, groupType, pageable);
+        } else {
+            page = groupRepo.findByCommunityIdAndIsActiveTrue(communityId, pageable);
         }
-        return groupRepo.findByCommunityIdAndIsActiveTrue(communityId, pageable);
+        Set<Long> myGroupIds = currentUserId != null
+                ? new HashSet<>(memberRepo.findGroupIdsByUserId(currentUserId))
+                : Set.of();
+        page.getContent().forEach(g -> g.setIsMember(myGroupIds.contains(g.getId())));
+        return page;
     }
 
     @Transactional(readOnly = true)
     public List<SocialGroup> getMyGroups(Long userId) {
+        if (userId == null) return List.of();
         List<Long> groupIds = memberRepo.findGroupIdsByUserId(userId);
         if (groupIds.isEmpty()) return List.of();
         return groupRepo.findAllById(groupIds).stream()
-                .filter(SocialGroup::isActive).toList();
+                .filter(SocialGroup::isActive)
+                .peek(g -> g.setIsMember(true))
+                .toList();
     }
 
     public void joinGroup(Long groupId, Long userId) {
         SocialGroup group = groupRepo.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Group not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Social Group", groupId));
         if (group.isPrivate()) {
             throw new SecurityException("This group requires an invitation to join");
         }
         if (!memberRepo.existsByGroupIdAndUserId(groupId, userId)) {
+            if (group.getMaxMembers() > 0 && group.getMemberCount() >= group.getMaxMembers()) {
+                throw new IllegalStateException("This group has reached its maximum member capacity");
+            }
             memberRepo.save(SocialGroupMember.builder()
                     .groupId(groupId).userId(userId).role("MEMBER").build());
             group.setMemberCount(group.getMemberCount() + 1);
@@ -110,26 +167,49 @@ public class SocialGroupService {
         if (!memberRepo.existsByGroupIdAndUserId(groupId, senderId)) {
             throw new SecurityException("Not a group member");
         }
+        OffsetDateTime now = OffsetDateTime.now();
         GroupMessage msg = GroupMessage.builder()
                 .groupId(groupId)
                 .senderId(senderId)
                 .content(content)
                 .messageType(messageType != null ? messageType : "TEXT")
+                .sentAt(now)
                 .build();
         msg = messageRepo.save(msg);
-        ws.convertAndSend("/topic/groups/" + groupId + "/messages",
-                Map.of("id", msg.getId(), "groupId", groupId, "senderId", senderId,
-                        "content", content, "type", msg.getMessageType(),
-                        "sentAt", msg.getSentAt().toString()));
+        if (msg.getSentAt() == null) {
+            msg.setSentAt(now);
+        }
+        String senderName = resolveUserName(senderId);
+        String avatarUrl = resolveUserAvatar(senderId);
+        msg.setSenderName(senderName);
+        msg.setSenderAvatarUrl(avatarUrl);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", msg.getId());
+        payload.put("groupId", groupId);
+        payload.put("senderId", senderId);
+        payload.put("senderName", senderName);
+        if (avatarUrl != null) payload.put("senderAvatarUrl", avatarUrl);
+        payload.put("content", content);
+        payload.put("type", msg.getMessageType());
+        payload.put("sentAt", msg.getSentAt().toString());
+        ws.convertAndSend("/topic/groups/" + groupId + "/messages", payload);
         return msg;
     }
 
     @Transactional(readOnly = true)
     public Page<GroupMessage> getMessages(Long groupId, Long requesterId, Pageable pageable) {
-        if (!memberRepo.existsByGroupIdAndUserId(groupId, requesterId)) {
+        SocialGroup group = groupRepo.findById(groupId).orElse(null);
+        boolean isPrivate = group == null || group.isPrivate();
+        if (isPrivate && (requesterId == null || !memberRepo.existsByGroupIdAndUserId(groupId, requesterId))) {
             throw new SecurityException("Not a group member");
         }
-        return messageRepo.findByGroupIdAndDeletedAtIsNullOrderBySentAtDesc(groupId, pageable);
+        Page<GroupMessage> page = messageRepo.findByGroupIdAndDeletedAtIsNullOrderBySentAtDesc(groupId, pageable);
+        page.getContent().forEach(m -> {
+            m.setSenderName(resolveUserName(m.getSenderId()));
+            m.setSenderAvatarUrl(resolveUserAvatar(m.getSenderId()));
+        });
+        return page;
     }
 
     public GroupEvent createGroupEvent(Long groupId, Long createdBy, String title, String description,
@@ -145,7 +225,7 @@ public class SocialGroupService {
 
     public void rsvpEvent(Long eventId, Long userId, String response) {
         GroupEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Group Event", eventId));
         if (!memberRepo.existsByGroupIdAndUserId(event.getGroupId(), userId)) {
             throw new SecurityException("Not a group member");
         }
@@ -157,7 +237,17 @@ public class SocialGroupService {
 
     @Transactional(readOnly = true)
     public List<GroupEvent> getUpcomingEvents(Long groupId) {
-        return eventRepo.findByGroupIdAndEventDateAfterOrderByEventDateAsc(groupId, OffsetDateTime.now());
+        return getUpcomingEvents(groupId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<GroupEvent> getUpcomingEvents(Long groupId, Long currentUserId) {
+        List<GroupEvent> events = eventRepo.findByGroupIdAndEventDateAfterOrderByEventDateAsc(groupId, OffsetDateTime.now());
+        if (currentUserId != null) {
+            events.forEach(ev -> rsvpRepo.findByEventIdAndUserId(ev.getId(), currentUserId)
+                    .ifPresent(r -> ev.setRsvpStatus(r.getResponse())));
+        }
+        return events;
     }
 
     public GroupExpense addExpense(Long groupId, Long paidBy, BigDecimal amount, String description) {
@@ -165,16 +255,27 @@ public class SocialGroupService {
             throw new SecurityException("Not a group member");
         }
         List<SocialGroupMember> members = memberRepo.findByGroupId(groupId);
+        int memberCount = Math.max(1, members.size());
         GroupExpense expense = expenseRepo.save(GroupExpense.builder()
                 .groupId(groupId).paidBy(paidBy).amount(amount)
                 .description(description).splitType("EQUAL")
                 .build());
-        BigDecimal share = amount.divide(BigDecimal.valueOf(members.size()), 2, RoundingMode.HALF_UP);
-        members.forEach(m -> splitRepo.save(GroupExpenseSplit.builder()
-                .expenseId(expense.getId())
-                .memberId(m.getUserId())
-                .amountOwed(share)
-                .build()));
+        BigDecimal share = amount.divide(BigDecimal.valueOf(memberCount), 2, RoundingMode.HALF_UP);
+        OffsetDateTime now = OffsetDateTime.now();
+        members.forEach(m -> {
+            boolean isPayer = m.getUserId().equals(paidBy);
+            splitRepo.save(GroupExpenseSplit.builder()
+                    .expenseId(expense.getId())
+                    .memberId(m.getUserId())
+                    .amountOwed(share)
+                    .isSettled(isPayer)
+                    .settledAt(isPayer ? now : null)
+                    .build());
+        });
+        expense.setPaidByName(resolveUserName(paidBy));
+        expense.setSplitBetween(memberCount);
+        expense.setMyShare(share);
+        expense.setMyBalance(amount.subtract(share));
         return expense;
     }
 
@@ -188,13 +289,57 @@ public class SocialGroupService {
 
     @Transactional(readOnly = true)
     public List<GroupExpense> listExpenses(Long groupId) {
-        return expenseRepo.findByGroupIdOrderByCreatedAtDesc(groupId);
+        return listExpenses(groupId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<GroupExpense> listExpenses(Long groupId, Long currentUserId) {
+        List<GroupExpense> expenses = expenseRepo.findByGroupIdOrderByCreatedAtDesc(groupId);
+        for (GroupExpense e : expenses) {
+            e.setPaidByName(resolveUserName(e.getPaidBy()));
+            List<GroupExpenseSplit> splits = splitRepo.findByExpenseId(e.getId());
+            int count = Math.max(1, splits.size());
+            e.setSplitBetween(count);
+            BigDecimal defaultShare = e.getAmount() != null
+                    ? e.getAmount().divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            if (currentUserId == null) {
+                e.setMyShare(defaultShare);
+                e.setMyBalance(BigDecimal.ZERO);
+            } else if (currentUserId.equals(e.getPaidBy())) {
+                BigDecimal myShare = splits.stream()
+                        .filter(s -> currentUserId.equals(s.getMemberId()))
+                        .map(GroupExpenseSplit::getAmountOwed)
+                        .findFirst()
+                        .orElse(defaultShare);
+                BigDecimal unsettledOwedToMe = splits.stream()
+                        .filter(s -> !currentUserId.equals(s.getMemberId()) && !s.isSettled())
+                        .map(GroupExpenseSplit::getAmountOwed)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                e.setMyShare(myShare);
+                e.setMyBalance(unsettledOwedToMe);
+            } else {
+                GroupExpenseSplit mySplit = splits.stream()
+                        .filter(s -> currentUserId.equals(s.getMemberId()))
+                        .findFirst()
+                        .orElse(null);
+                BigDecimal myShare = mySplit != null ? mySplit.getAmountOwed() : defaultShare;
+                BigDecimal myBalance = (mySplit != null && !mySplit.isSettled())
+                        ? mySplit.getAmountOwed().negate()
+                        : BigDecimal.ZERO;
+                e.setMyShare(myShare);
+                e.setMyBalance(myBalance);
+            }
+        }
+        return expenses;
     }
 
     @Transactional(readOnly = true)
     public BigDecimal getMyBalance(Long groupId, Long userId) {
         BigDecimal owed = splitRepo.sumUnsettledOwedByUser(groupId, userId);
         BigDecimal owedToMe = splitRepo.sumUnsettledOwedToUser(groupId, userId);
-        return owedToMe.subtract(owed);
+        return (owedToMe != null ? owedToMe : BigDecimal.ZERO)
+                .subtract(owed != null ? owed : BigDecimal.ZERO);
     }
 }

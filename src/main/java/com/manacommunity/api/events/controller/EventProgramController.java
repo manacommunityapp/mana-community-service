@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/programs")
+@RequestMapping({"/api/events/programs", "/events/programs", "/api/events/{eventId}/programs", "/events/{eventId}/programs"})
 @RequiredArgsConstructor
 public class EventProgramController {
 
@@ -25,25 +25,31 @@ public class EventProgramController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAuthority('View Events') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<EventProgramResponse>> getByEvent(
-            @RequestParam Long eventId,
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
+            @RequestParam(name = "eventId", required = false) Long queryEventId,
             @RequestParam(required = false) String dayLabel) {
+        Long eventId = pathEventId != null ? pathEventId : queryEventId;
         return ResponseEntity.ok(programService.getByEvent(eventId, dayLabel));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<EventProgramResponse> create(
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
             @Valid @RequestBody EventProgramRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (req.getEventId() == null && pathEventId != null) {
+            req.setEventId(pathEventId);
+        }
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(programService.create(req, user, user.getCommunity()));
+                .body(programService.create(req, user, user != null ? user.getCommunity() : null));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<EventProgramResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventProgramRequest req) {
@@ -51,7 +57,7 @@ public class EventProgramController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         programService.delete(id);
         return ResponseEntity.noContent().build();

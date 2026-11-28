@@ -25,6 +25,7 @@ public final class PermissionConstants {
     public static final String ROLE_POLLS_ADMIN          = "POLLS_ADMIN";
     public static final String ROLE_JOBS_ADMIN           = "JOBS_ADMIN";
     public static final String ROLE_EVENTS_ADMIN         = "EVENTS_ADMIN";
+    public static final String ROLE_EVENT_ADMIN          = "EVENT_ADMIN";
     public static final String ROLE_COMMUNITY_MGMT_ADMIN = "COMMUNITY_MGMT_ADMIN";
     public static final String ROLE_FINANCE_MGMT_ADMIN   = "FINANCE_MGMT_ADMIN";
     public static final String ROLE_ADMIN_HUB_ADMIN      = "ADMIN_HUB_ADMIN";
@@ -627,6 +628,13 @@ public final class PermissionConstants {
             Map.entry(ROLE_POLLS_ADMIN,              POLLS_ADMIN_PERMISSIONS),
             Map.entry(ROLE_JOBS_ADMIN,               JOBS_ADMIN_PERMISSIONS),
             Map.entry(ROLE_EVENTS_ADMIN,             EVENTS_ADMIN_PERMISSIONS),
+            Map.entry(ROLE_EVENT_ADMIN,              EVENTS_ADMIN_PERMISSIONS),
+            Map.entry("RESIDENT",                    MEMBER_PERMISSIONS),
+            Map.entry("OWNER",                       MEMBER_PERMISSIONS),
+            Map.entry("TENANT",                      MEMBER_PERMISSIONS),
+            Map.entry("SPORTS_TRAINER",              SPORTS_ADMIN_PERMISSIONS),
+            Map.entry("GUARD",                       VisitorPermissions.ALL),
+            Map.entry("SECURITY",                    VisitorPermissions.ALL),
             Map.entry(ROLE_COMMUNITY_MGMT_ADMIN,     COMMUNITY_MGMT_ADMIN_PERMISSIONS),
             Map.entry(ROLE_FINANCE_MGMT_ADMIN,       FINANCE_MGMT_ADMIN_PERMISSIONS),
             Map.entry(ROLE_ADMIN_HUB_ADMIN,          ADMIN_HUB_ADMIN_PERMISSIONS),

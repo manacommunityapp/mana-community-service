@@ -9,12 +9,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCarpoolOffer, Long> {
 
     Page<MobilityCarpoolOffer> findByDriverUserIdOrderByDepartureTimeDesc(Long userId, Pageable pageable);
     List<MobilityCarpoolOffer> findByStatusInAndDepartureTimeBefore(List<String> statuses, Instant before);
+    boolean existsBySourceSlotIdAndScheduledDate(Long sourceSlotId, LocalDate scheduledDate);
+    List<MobilityCarpoolOffer> findByCommunityId(Long communityId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.id = :id")
@@ -35,6 +38,27 @@ public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCa
 
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.driverUser.id = :userId AND o.airportCode IS NOT NULL ORDER BY o.departureTime DESC")
     Page<MobilityCarpoolOffer> findMyAirportRides(Long userId, Pageable pageable);
+
+    @Query("SELECT o FROM MobilityCarpoolOffer o WHERE " +
+           " (o.community.id = :communityId OR (:allowCrossCommunity = true AND o.allowCrossCommunity = true))" +
+           " AND o.status IN ('ACTIVE', 'FULL')" +
+           " AND o.journeyType = :journeyType AND o.hubCode = :hubCode" +
+           " AND (:journeyDirection IS NULL OR o.journeyDirection = :journeyDirection)" +
+           " AND (:area IS NULL OR LOWER(o.origin) LIKE LOWER(CONCAT('%', :area, '%')) OR LOWER(o.destination) LIKE LOWER(CONCAT('%', :area, '%')))" +
+           " AND (:fromTime IS NULL OR o.departureTime >= :fromTime) AND (:toTime IS NULL OR o.departureTime < :toTime)" +
+           " AND o.availableSeats >= :seats AND COALESCE(o.luggageCapacity, 0) >= :luggageCount" +
+           " ORDER BY o.departureTime ASC")
+    Page<MobilityCarpoolOffer> findJourneyOffersWithScope(@Param("communityId") Long communityId,
+                                                           @Param("allowCrossCommunity") boolean allowCrossCommunity,
+                                                           @Param("journeyType") String journeyType,
+                                                           @Param("hubCode") String hubCode,
+                                                           @Param("journeyDirection") String journeyDirection,
+                                                           @Param("area") String area,
+                                                           @Param("fromTime") java.time.Instant fromTime,
+                                                           @Param("toTime") java.time.Instant toTime,
+                                                           @Param("seats") int seats,
+                                                           @Param("luggageCount") int luggageCount,
+                                                           Pageable pageable);
 
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.community.id = :communityId AND o.status IN ('ACTIVE', 'FULL')" +
            " AND o.journeyType = :journeyType AND o.hubCode = :hubCode" +

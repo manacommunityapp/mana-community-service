@@ -270,8 +270,11 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/dev/sqs/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
+                // Express Entry Delivery Partner APIs (Zomato, Swiggy, Blinkit, Zepto, Amazon)
+                .requestMatchers("/api/v1/partners/delivery/**").permitAll()
                 // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
                 .requestMatchers("/api/insurance/webhooks/**").permitAll()
                 // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
@@ -293,6 +296,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**", "/api/v1/communities/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/community", "/api/community/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/analytics/events", "/api/analytics/events").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/frontend-logs").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
@@ -312,8 +316,20 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
                 // Mana Fresh & Kitchen: Public GET endpoints for city serviceability and catalog browsing
                 .requestMatchers(HttpMethod.GET, "/api/v1/fresh/cities", "/api/v1/fresh/service-zones", "/api/v1/fresh/serviceability").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/fresh-kitchen/products/**", "/api/v1/fresh-kitchen/batters", "/api/v1/fresh-kitchen/combos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/fresh-kitchen/products/**", "/fresh-kitchen/batters", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh/products", "/api/v1/fresh/products/**",
+                        "/api/fresh/products", "/api/fresh/products/**",
+                        "/fresh/products", "/fresh/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh-kitchen/products", "/api/v1/fresh-kitchen/products/**",
+                        "/api/fresh-kitchen/products", "/api/fresh-kitchen/products/**",
+                        "/fresh-kitchen/products", "/fresh-kitchen/products/**",
+                        "/api/v1/fresh-kitchen/batters", "/api/fresh-kitchen/batters", "/fresh-kitchen/batters",
+                        "/api/v1/fresh-kitchen/combos", "/api/v1/fresh-kitchen/combos/**",
+                        "/api/fresh-kitchen/combos", "/api/fresh-kitchen/combos/**",
+                        "/fresh-kitchen/combos", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/wellness-basket/plans", "/api/wellness-basket/plans", "/wellness-basket/plans").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

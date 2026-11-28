@@ -81,10 +81,23 @@ public class MobileVisitorController {
             @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
-        if (!user.getId().equals(pass.getResidentId())) {
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.approvePass(id, user));
+    }
+
+    /** PUT /api/visitors/mobile/{id}/leave-at-gate — resident instructs guard to hold package */
+    @PutMapping("/{id}/leave-at-gate")
+    public ResponseEntity<VisitorPassResponse> leaveAtGate(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
     }
 
     /** PUT /api/visitors/mobile/{id}/reject — resident rejects a pass */
@@ -94,7 +107,7 @@ public class MobileVisitorController {
             @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
-        if (!user.getId().equals(pass.getResidentId())) {
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));

@@ -7,6 +7,11 @@ import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.groupbuying.model.GroupBuyOrder;
 import com.manacommunity.api.groupbuying.model.OrderStatus;
 import com.manacommunity.api.groupbuying.repository.GroupBuyOrderRepository;
+import com.manacommunity.api.mobility.model.MobilityCarpoolBooking;
+import com.manacommunity.api.mobility.model.MobilityTrip;
+import com.manacommunity.api.mobility.model.MobilityTripStatus;
+import com.manacommunity.api.mobility.repository.MobilityCarpoolBookingRepository;
+import com.manacommunity.api.mobility.repository.MobilityTripRepository;
 import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,6 +79,8 @@ public class PaymentAmountResolver {
     private final GroupBuyOrderRepository groupBuyOrderRepository;
     private final CommerceOrderRepository commerceOrderRepository;
     private final CashfreeOrderRepository cashfreeOrderRepository;
+    private final MobilityTripRepository mobilityTripRepository;
+    private final MobilityCarpoolBookingRepository mobilityCarpoolBookingRepository;
 
     /**
      * The outcome of a resolution.
@@ -124,8 +131,10 @@ public class PaymentAmountResolver {
         rejectIfAlreadyCollected(referenceType, type, referenceId, callerUserId);
 
         BigDecimal serverAmount = switch (type) {
-            case "GROUP_BUY_ORDER" -> groupBuyOrderAmount(referenceId, callerCommunityId, callerUserId);
-            case "COMMERCE_ORDER"  -> commerceOrderAmount(referenceId, callerCommunityId, callerUserId);
+            case "GROUP_BUY_ORDER"  -> groupBuyOrderAmount(referenceId, callerCommunityId, callerUserId);
+            case "COMMERCE_ORDER"   -> commerceOrderAmount(referenceId, callerCommunityId, callerUserId);
+            case "MOBILITY_TRIP"    -> mobilityTripAmount(referenceId, callerCommunityId, callerUserId);
+            case "MOBILITY_CARPOOL" -> mobilityCarpoolAmount(referenceId, callerCommunityId, callerUserId);
             default -> null;
         };
 
@@ -216,6 +225,43 @@ public class PaymentAmountResolver {
         }
 
         return requirePayable("COMMERCE_ORDER", referenceId, order.getTotalAmount());
+    }
+
+    private BigDecimal mobilityTripAmount(Long referenceId, Long callerCommunityId, Long callerUserId) {
+        MobilityTrip trip = mobilityTripRepository.findById(referenceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mobility trip", referenceId));
+
+        requireOwnership("MOBILITY_TRIP", referenceId,
+                trip.getPassenger() != null ? trip.getPassenger().getId() : null,
+                trip.getCommunity() != null ? trip.getCommunity().getId() : null,
+                callerUserId, callerCommunityId);
+
+        if ("PAID".equalsIgnoreCase(trip.getPaymentStatus())
+                || trip.getStatus() == MobilityTripStatus.CANCELLED
+                || trip.getStatus() == MobilityTripStatus.EXPIRED) {
+            throw new IllegalStateException("Mobility trip " + trip.getTripRef() + " is not payable.");
+        }
+
+        BigDecimal fare = trip.getFinalFare() != null ? trip.getFinalFare() : trip.getQuotedTotal();
+        return requirePayable("MOBILITY_TRIP", referenceId, fare);
+    }
+
+    private BigDecimal mobilityCarpoolAmount(Long referenceId, Long callerCommunityId, Long callerUserId) {
+        MobilityCarpoolBooking booking = mobilityCarpoolBookingRepository.findById(referenceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mobility carpool booking", referenceId));
+
+        Long commId = booking.getOffer() != null && booking.getOffer().getCommunity() != null
+                ? booking.getOffer().getCommunity().getId() : callerCommunityId;
+        requireOwnership("MOBILITY_CARPOOL", referenceId,
+                booking.getUser() != null ? booking.getUser().getId() : null,
+                commId, callerUserId, callerCommunityId);
+
+        if ("PAID".equalsIgnoreCase(booking.getPaymentStatus())
+                || "CANCELLED".equalsIgnoreCase(booking.getStatus())) {
+            throw new IllegalStateException("Carpool booking " + referenceId + " is not payable.");
+        }
+
+        return requirePayable("MOBILITY_CARPOOL", referenceId, booking.getTotalAmount());
     }
 
     // ─── Shared guards ────────────────────────────────────────────────────────

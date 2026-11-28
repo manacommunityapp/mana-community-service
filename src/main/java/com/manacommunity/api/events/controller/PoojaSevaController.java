@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/pooja-sevas")
+@RequestMapping({"/api/events/pooja-sevas", "/events/pooja-sevas"})
 public class PoojaSevaController {
 
     private final PoojaSevaService service;
@@ -42,7 +42,7 @@ public class PoojaSevaController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventPoojaSeva> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody EventPoojaSeva body) {
@@ -52,7 +52,7 @@ public class PoojaSevaController {
     }
 
     @PutMapping("/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventPoojaSeva> update(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
@@ -63,7 +63,7 @@ public class PoojaSevaController {
     }
 
     @DeleteMapping("/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<Void> delete(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
@@ -73,7 +73,7 @@ public class PoojaSevaController {
     }
 
     @PatchMapping("/{id}/status")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventPoojaSeva> updateStatus(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,

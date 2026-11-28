@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -35,7 +36,11 @@ public class MaintenanceWalletAliasController {
         MaintenanceDuesController.WalletPaymentRequest walletReq = new MaintenanceDuesController.WalletPaymentRequest();
         Object amountObj = request.get("amount");
         if (amountObj instanceof Number) {
-            walletReq.setAmount(((Number) amountObj).doubleValue());
+            walletReq.setAmount(BigDecimal.valueOf(((Number) amountObj).doubleValue()));
+        } else if (amountObj instanceof String) {
+            try {
+                walletReq.setAmount(new BigDecimal((String) amountObj));
+            } catch (NumberFormatException ignored) {}
         }
         return maintenanceDuesController.payWithWallet(billId, walletReq, principal);
     }

@@ -1,13 +1,16 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.api.constants.PermissionConstants;
+import com.manacommunity.api.events.repository.EventAuctionItemRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
-import com.manacommunity.api.socialcircle.repository.KittyPartyCircleRepository;
 import com.manacommunity.api.socialcircle.repository.KittyPartyGameRoomRepository;
+import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -36,14 +39,15 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
 
     private static final Pattern CONVERSATION_TOPIC = Pattern.compile("^/topic/conversation/(\\d+)$");
     private static final Pattern CHAT_USER_TOPIC    = Pattern.compile("^/topic/chat-user/(\\d+)$");
-    private static final Pattern NOTIFICATION_TOPIC  = Pattern.compile("^/topic/notifications/(\\d+)$");
-    private static final Pattern AUCTION_TOPIC       = Pattern.compile("^/topic/auction/(\\d+)$");
-    private static final Pattern MATCH_TOPIC         = Pattern.compile("^/topic/match/(\\d+)(?:/.*)?$");
-    private static final Pattern KITTY_GAME_TOPIC    = Pattern.compile("^/topic/kitty-games/(\\d+)$");
-    private static final Pattern COMMUNITY_TOPIC     = Pattern.compile("^/topic/community/(\\d+)(?:/.*)?$");
-    private static final Pattern BROADCAST_TOPIC     = Pattern.compile("^/topic/broadcast/(\\d+)(?:/.*)?$");
-    private static final Pattern EMERGENCY_TOPIC     = Pattern.compile("^/topic/emergency/(\\d+)(?:/.*)?$");
-    private static final Pattern NOTICEBOARD_TOPIC   = Pattern.compile("^/topic/noticeboard/(\\d+)(?:/.*)?$");
+    private static final Pattern NOTIFICATION_TOPIC = Pattern.compile("^/topic/notifications/(\\d+)$");
+    private static final Pattern AUCTION_TOPIC      = Pattern.compile("^/topic/auction/(\\d+)$");
+    private static final Pattern MATCH_TOPIC        = Pattern.compile("^/topic/match(?:es)?/(\\d+)(?:/.*)?$");
+    private static final Pattern SPORTS_LIVE_TOPIC  = Pattern.compile("^/topic/sports/live(?:/.*)?$");
+    private static final Pattern KITTY_GAME_TOPIC   = Pattern.compile("^/topic/kitty-games/(\\d+)$");
+    private static final Pattern COMMUNITY_TOPIC    = Pattern.compile("^/topic/community/(\\d+)(?:/.*)?$");
+    private static final Pattern BROADCAST_TOPIC    = Pattern.compile("^/topic/broadcast/(\\d+)(?:/.*)?$");
+    private static final Pattern EMERGENCY_TOPIC    = Pattern.compile("^/topic/emergency/(\\d+)(?:/.*)?$");
+    private static final Pattern NOTICEBOARD_TOPIC  = Pattern.compile("^/topic/noticeboard/(\\d+)(?:/.*)?$");
 
     private final AppUserRepository userRepository;
     private final ConversationParticipantRepository participantRepository;
@@ -51,6 +55,12 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
     private final SportsTournamentMatchRepository matchRepository;
     private final KittyPartyGameRoomRepository gameRoomRepository;
     private final CommunityMembershipService membershipService;
+
+    @Autowired(required = false)
+    private SportsAuctionConfigRepository sportsAuctionConfigRepository;
+
+    @Autowired(required = false)
+    private EventAuctionItemRepository eventAuctionItemRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -135,6 +145,13 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
             return isUserInResourceCommunity(userId, matchId, ResourceType.MATCH);
         }
 
+        if (SPORTS_LIVE_TOPIC.matcher(destination).matches()) {
+            return userRepository.findById(userId)
+                    .map(u -> u.hasRole(PermissionConstants.ROLE_SUPER_ADMIN)
+                            || !membershipService.getAuthorizedCommunityIds(u).isEmpty())
+                    .orElse(false);
+        }
+
         m = KITTY_GAME_TOPIC.matcher(destination);
         if (m.matches()) {
             long gameRoomId = Long.parseLong(m.group(1));
@@ -152,9 +169,7 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
 
     private boolean isUserInResourceCommunity(Long userId, long resourceId, ResourceType type) {
         Long resourceCommunityId = switch (type) {
-            case AUCTION_CONFIG -> configRepository.findById(resourceId)
-                    .map(c -> c.getCommunity() != null ? c.getCommunity().getId() : null)
-                    .orElse(null);
+            case AUCTION_CONFIG -> resolveAuctionCommunityId(resourceId);
             case MATCH -> matchRepository.findById(resourceId)
                     .map(m -> m.getCommunity() != null ? m.getCommunity().getId() : null)
                     .orElse(null);
@@ -167,6 +182,23 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
         if (resourceCommunityId == null) return false;
 
         return membershipService.isUserAuthorizedForCommunity(userId, resourceCommunityId);
+    }
+
+    private Long resolveAuctionCommunityId(long resourceId) {
+        Long cid = configRepository.findById(resourceId)
+                .map(c -> c.getCommunity() != null ? c.getCommunity().getId() : null)
+                .orElse(null);
+        if (cid == null && sportsAuctionConfigRepository != null) {
+            cid = sportsAuctionConfigRepository.findById(resourceId)
+                    .map(c -> c.getCommunity() != null ? c.getCommunity().getId() : null)
+                    .orElse(null);
+        }
+        if (cid == null && eventAuctionItemRepository != null) {
+            cid = eventAuctionItemRepository.findById(resourceId)
+                    .map(item -> item.getCommunity() != null ? item.getCommunity().getId() : null)
+                    .orElse(null);
+        }
+        return cid;
     }
 
     private Long extractUserId(StompHeaderAccessor accessor) {

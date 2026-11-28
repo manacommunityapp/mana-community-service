@@ -15,6 +15,9 @@ public class PollResponse {
     private String closesOn;
     private boolean allowMultiple;
     private boolean anonymous;
+    private String votingMode;
+    private Integer excludeDefaultersOverDays;
+    private boolean ownersOnly;
     private Long createdById;
     private String createdByName;
     private Long communityId;
@@ -22,6 +25,7 @@ public class PollResponse {
     private boolean closed;
     private boolean hasVoted;
     private int totalVotes;
+    private double totalWeightedVotes;
     private List<OptionDto> options;
 
     @Data
@@ -31,6 +35,7 @@ public class PollResponse {
         private String text;
         private int sortOrder;
         private long voteCount;
+        private double weightedScore;
         private boolean selected;
     }
 }

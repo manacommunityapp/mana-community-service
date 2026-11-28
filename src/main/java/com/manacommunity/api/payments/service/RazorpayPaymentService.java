@@ -67,6 +67,18 @@ public class RazorpayPaymentService {
     private final DomainEventPublisher    domainEventPublisher;
     private final PaymentAmountResolver   amountResolver;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
+
     // ─── Order Creation ──────────────────────────────────────────────────────
 
     /**
@@ -203,6 +215,12 @@ public class RazorpayPaymentService {
         order.setPaidAt(LocalDateTime.now());
         RazorpayOrder saved = orderRepository.save(order);
 
+        if (mobilityPaymentCallbackService != null) {
+            mobilityPaymentCallbackService.confirmPayment(
+                    saved.getReferenceType(), saved.getReferenceId(),
+                    saved.getRazorpayOrderId(), saved.getRazorpayPaymentId(), "RAZORPAY");
+        }
+
         auditService.record(
                 AuditAction.PAYMENT_COMPLETED,
                 AuditModule.PAYMENT,
@@ -280,6 +298,12 @@ public class RazorpayPaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
 
+                if (mobilityPaymentCallbackService != null) {
+                    mobilityPaymentCallbackService.confirmPayment(
+                            order.getReferenceType(), order.getReferenceId(),
+                            order.getRazorpayOrderId(), razorpayPaymentId, "RAZORPAY");
+                }
+
                 auditService.record(AuditAction.PAYMENT_WEBHOOK_PROCESSED, AuditModule.PAYMENT,
                         "RazorpayOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook payment.captured: order {} PAID via paymentId={}", razorpayOrderId, razorpayPaymentId);
@@ -291,6 +315,8 @@ public class RazorpayPaymentService {
                 eventPublisher.publishEvent(razorpayCaptured);
                 domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(order.getId()),
                         "GatewayPaymentCaptured", razorpayCaptured, order.getCommunity() != null ? order.getCommunity().getId() : null);
+
+                enqueuePaymentNotification(order, true);
             }
         }, () -> log.warn("Webhook payment.captured: no local order found for razorpayOrderId={}", razorpayOrderId));
     }
@@ -309,8 +335,29 @@ public class RazorpayPaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
                 log.info("Webhook payment.failed: order {} FAILED: {}", razorpayOrderId, errorDesc);
+                enqueuePaymentNotification(order, false);
             }
         });
+    }
+
+    private void enqueuePaymentNotification(RazorpayOrder order, boolean success) {
+        if (order.getUser() == null || sqsMessagePublisher == null || sqsProperties == null || paymentEventsSqsHandler == null) {
+            return;
+        }
+        var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.PaymentNotificationPayload(
+                order.getUser().getId(),
+                order.getRazorpayOrderId(),
+                "RAZORPAY",
+                order.getAmount(),
+                success,
+                order.getFailureReason()
+        );
+        sqsMessagePublisher.publishAfterCommit(
+                sqsProperties.getQueues().getPaymentEvents(),
+                "PAYMENT_NOTIFICATION",
+                payload,
+                () -> paymentEventsSqsHandler.deliverPaymentNotification(payload)
+        );
     }
 
     private void handleRefundProcessed(JSONObject event, String eventId) {

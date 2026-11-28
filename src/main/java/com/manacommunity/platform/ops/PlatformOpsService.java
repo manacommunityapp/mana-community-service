@@ -1,11 +1,14 @@
 package com.manacommunity.platform.ops;
 
+import com.manacommunity.platform.websocket.WebSocketSessionTracker;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,12 @@ public class PlatformOpsService {
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
     private final SimpMessagingTemplate messaging;
+
+    @Autowired(required = false)
+    private SimpUserRegistry simpUserRegistry;
+
+    @Autowired(required = false)
+    private WebSocketSessionTracker sessionTracker;
 
     // ─── Full Snapshot ──────────────────────────────────────────────────────
 
@@ -74,14 +83,14 @@ public class PlatformOpsService {
     public PlatformOpsSnapshot.BackgroundJobStats getJobStats() {
         try {
             long failed = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM outbox_event WHERE status = 'FAILED' " +
+                "SELECT COUNT(*) FROM manacommunity.outbox_event WHERE status = 'FAILED' " +
                 "AND created_at > NOW() - INTERVAL '24 hours'",
                 Long.class);
             long pending = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM outbox_event WHERE status = 'PENDING'",
+                "SELECT COUNT(*) FROM manacommunity.outbox_event WHERE status = 'PENDING'",
                 Long.class);
             long failedTotal = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM outbox_event WHERE status = 'FAILED'",
+                "SELECT COUNT(*) FROM manacommunity.outbox_event WHERE status = 'FAILED'",
                 Long.class);
             return new PlatformOpsSnapshot.BackgroundJobStats(1, failed, pending, failedTotal);
         } catch (Exception e) {
@@ -114,17 +123,17 @@ public class PlatformOpsService {
     public PlatformOpsSnapshot.NotificationStats getNotificationStats() {
         try {
             long total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM outbox_event WHERE created_at > NOW() - INTERVAL '24 hours'",
+                "SELECT COUNT(*) FROM manacommunity.outbox_event WHERE created_at > NOW() - INTERVAL '24 hours'",
                 Long.class);
             long failed = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM outbox_event WHERE status = 'FAILED' " +
+                "SELECT COUNT(*) FROM manacommunity.outbox_event WHERE status = 'FAILED' " +
                 "AND created_at > NOW() - INTERVAL '24 hours'",
                 Long.class);
             double rate = total > 0 ? (double) failed / total * 100.0 : 0.0;
 
             // breakdown by aggregate_type as channel proxy
             List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT aggregate_type, COUNT(*) AS cnt FROM outbox_event " +
+                "SELECT aggregate_type, COUNT(*) AS cnt FROM manacommunity.outbox_event " +
                 "WHERE status = 'FAILED' AND created_at > NOW() - INTERVAL '24 hours' " +
                 "GROUP BY aggregate_type");
             Map<String, Long> breakdown = rows.stream().collect(
@@ -142,14 +151,14 @@ public class PlatformOpsService {
         try {
             // wallet transactions pending > 30 min
             long stalled = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM community_wallet_transactions " +
+                "SELECT COUNT(*) FROM manacommunity.community_wallet_transactions " +
                 "WHERE status = 'PENDING' AND initiated_at < NOW() - INTERVAL '30 minutes'",
                 Long.class);
             long pending = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM community_wallet_transactions WHERE status = 'PENDING'",
+                "SELECT COUNT(*) FROM manacommunity.community_wallet_transactions WHERE status = 'PENDING'",
                 Long.class);
             long failedTxn = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM community_wallet_transactions WHERE status = 'FAILED' " +
+                "SELECT COUNT(*) FROM manacommunity.community_wallet_transactions WHERE status = 'FAILED' " +
                 "AND initiated_at > NOW() - INTERVAL '24 hours'",
                 Long.class);
             return new PlatformOpsSnapshot.PaymentHealthStats(pending, 0.0, stalled, failedTxn);
@@ -184,10 +193,10 @@ public class PlatformOpsService {
     @Transactional(readOnly = true)
     public List<PlatformOpsSnapshot.SecurityIncidentSummary> getSecurityIncidents(int hours) {
         try {
-            Instant since = Instant.now().minus(hours, ChronoUnit.HOURS);
+            java.sql.Timestamp since = java.sql.Timestamp.from(Instant.now().minus(hours, ChronoUnit.HOURS));
             return jdbc.queryForList(
-                "SELECT id, category, actor_id, action, created_at FROM audit_journal " +
-                "WHERE category = 'SECURITY' AND created_at > ? ORDER BY created_at DESC LIMIT 50",
+                "SELECT id, category::text AS category, actor_id, action, created_at FROM manacommunity.audit_journal " +
+                "WHERE category::text = 'SECURITY' AND created_at > ? ORDER BY created_at DESC LIMIT 50",
                 since).stream().map(row -> new PlatformOpsSnapshot.SecurityIncidentSummary(
                     toLong(row.get("id")),
                     (String) row.get("category"),
@@ -205,11 +214,11 @@ public class PlatformOpsService {
     public List<PlatformOpsSnapshot.TenantHealthSummary> getTenantHealth() {
         try {
             return jdbc.queryForList(
-                "SELECT c.id, c.name, c.status, " +
-                "  (SELECT COUNT(*) FROM household_members hm WHERE hm.community_id = c.id) AS res_count, " +
-                "  (SELECT COUNT(*) FROM helpdesk_tickets ht WHERE ht.community_id = c.id AND ht.status = 'OPEN') AS open_issues, " +
+                "SELECT c.id, c.name, CASE WHEN c.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status, " +
+                "  (SELECT COUNT(*) FROM manacommunity.app_user u WHERE u.community_id = c.id) AS res_count, " +
+                "  (SELECT COUNT(*) FROM manacommunity.helpdesk_ticket ht WHERE ht.community_id = c.id AND ht.status = 'OPEN') AS open_issues, " +
                 "  c.created_at " +
-                "FROM communities c ORDER BY c.id LIMIT 100"
+                "FROM manacommunity.community c ORDER BY c.id LIMIT 100"
             ).stream().map(row -> new PlatformOpsSnapshot.TenantHealthSummary(
                 toLong(row.get("id")),
                 (String) row.get("name"),
@@ -322,11 +331,26 @@ public class PlatformOpsService {
 
     @Scheduled(fixedRate = 30_000)
     public void broadcastSnapshot() {
+        if (!hasOpsSubscribers()) {
+            return;
+        }
         try {
             messaging.convertAndSend("/topic/platform/ops", getSnapshot());
         } catch (Exception e) {
             log.debug("Platform ops broadcast failed: {}", e.getMessage());
         }
+    }
+
+    private boolean hasOpsSubscribers() {
+        if (simpUserRegistry != null) {
+            return !simpUserRegistry
+                    .findSubscriptions(sub -> "/topic/platform/ops".equals(sub.getDestination()))
+                    .isEmpty();
+        }
+        if (sessionTracker != null) {
+            return sessionTracker.hasActiveSessions();
+        }
+        return true;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

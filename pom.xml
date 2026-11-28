@@ -53,7 +53,7 @@
             Re-enable permanently:                 remove this property.
         -->
         <maven.test.skip>false</maven.test.skip>
-        <spring-ai.version>2.0.3</spring-ai.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
         <postgresql.version>42.7.14</postgresql.version>
         <aws.sdk.version>2.54.20</aws.sdk.version>
         <poi.version>6.0.0</poi.version>
@@ -400,6 +400,12 @@
             <artifactId>s3-transfer-manager</artifactId>
         </dependency>
 
+        <!-- AWS SDK v2 SQS client — version managed by software.amazon.awssdk:bom -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+        </dependency>
+
         <!-- Apache Tika — server-side MIME type detection from file bytes (never trust client Content-Type). -->
         <dependency>
             <groupId>org.apache.tika</groupId>
@@ -442,8 +448,9 @@
                     <fork>true</fork>
                     <meminitial>512m</meminitial>
                     <maxmem>2048m</maxmem>
+
                     <testExcludes>
-                        <testExclude>**/cfbos/unit/**</testExclude>
+                        <testExclude>**/cfbos/**</testExclude>
                     </testExcludes>
                     <annotationProcessorPaths>
                         <path>

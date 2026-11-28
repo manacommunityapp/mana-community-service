@@ -18,4 +18,11 @@ public class JourneySlotDto {
     private int luggageCapacity;
     private BigDecimal pricePerSeat;
     private String status;
+    private Double originLat;
+    private Double originLng;
+    private Double destLat;
+    private Double destLng;
+    private Double maxDetourKm;
+    private boolean allowCrossCommunity;
+    private boolean autoGenerate;
 }

@@ -6,8 +6,10 @@ import com.manacommunity.api.notification.event.RegistrationApprovedEvent;
 import com.manacommunity.api.notification.event.RegistrationConfirmedEvent;
 import com.manacommunity.api.notification.event.RegistrationRejectedEvent;
 import com.manacommunity.api.notification.service.SmsService;
+import com.manacommunity.api.notification.sqs.NotificationEventsSqsHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -22,11 +24,14 @@ public class RegistrationSmsHandler {
 
     private final SmsService smsService;
 
+    @Autowired(required = false)
+    private NotificationEventsSqsHandler notificationSqs;
+
     @Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRegistrationConfirmed(RegistrationConfirmedEvent event) {
         try {
-            smsService.send(SendSmsRequest.builder()
+            send("REGISTRATION_CONFIRMED", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode("REGISTRATION_CONFIRMED")
                     .messageType(MessageType.TRANSACTIONAL)
@@ -44,7 +49,7 @@ public class RegistrationSmsHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRegistrationApproved(RegistrationApprovedEvent event) {
         try {
-            smsService.send(SendSmsRequest.builder()
+            send("REGISTRATION_APPROVED", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode("REGISTRATION_APPROVED")
                     .messageType(MessageType.TRANSACTIONAL)
@@ -62,7 +67,7 @@ public class RegistrationSmsHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRegistrationRejected(RegistrationRejectedEvent event) {
         try {
-            smsService.send(SendSmsRequest.builder()
+            send("REGISTRATION_REJECTED", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode("REGISTRATION_REJECTED")
                     .messageType(MessageType.TRANSACTIONAL)
@@ -73,6 +78,14 @@ public class RegistrationSmsHandler {
                     .build());
         } catch (Exception ex) {
             log.warn("RegistrationRejected SMS failed for userId={}: {}", event.getUserId(), ex.getMessage());
+        }
+    }
+
+    private void send(String eventType, SendSmsRequest req) {
+        if (notificationSqs != null) {
+            notificationSqs.dispatch(eventType, req);
+        } else {
+            smsService.send(req);
         }
     }
 }

@@ -40,6 +40,7 @@ public class DigitalPass {
     @Column(nullable = false, unique = true)
     private String token;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PassStatus status = PassStatus.ACTIVE;
@@ -56,6 +57,7 @@ public class DigitalPass {
     @Column(name = "used_by_guard")
     private Long usedByGuard;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

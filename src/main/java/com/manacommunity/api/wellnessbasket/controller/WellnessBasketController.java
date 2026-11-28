@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping({"/api/v1/wellness-basket", "/wellness-basket"})
+@RequestMapping({"/api/v1/wellness-basket", "/api/wellness-basket", "/wellness-basket"})
 @RequiredArgsConstructor
 public class WellnessBasketController {
 

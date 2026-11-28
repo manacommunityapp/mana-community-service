@@ -12,5 +12,5 @@ public class HsBookingPhoto {
     @Column(name = "photo_url", nullable = false, length = 1024) private String photoUrl;
     @Column(name = "uploaded_by", nullable = false) private Long uploadedBy;
     @Column(length = 500) private String caption;
-    @Column(name = "uploaded_at") private Instant uploadedAt = Instant.now();
+    @Builder.Default @Column(name = "uploaded_at") private Instant uploadedAt = Instant.now();
 }

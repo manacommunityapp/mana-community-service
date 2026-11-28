@@ -13,7 +13,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @RestController("homeServiceReportController")
 @RequestMapping("/api/v1/home-services/reports")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceReportController {
     private final HomeServiceReportService reportService;
 

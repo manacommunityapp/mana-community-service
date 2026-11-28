@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/fresh-kitchen", "/fresh-kitchen"})
+@RequestMapping({"/api/v1/fresh-kitchen", "/api/fresh-kitchen", "/fresh-kitchen"})
 @RequiredArgsConstructor
 public class FreshKitchenController {
 

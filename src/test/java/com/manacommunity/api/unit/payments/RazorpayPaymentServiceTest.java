@@ -9,6 +9,7 @@ import com.manacommunity.api.payments.entity.RazorpayOrder;
 import com.manacommunity.api.payments.exception.PaymentGatewayException;
 import com.manacommunity.api.payments.exception.PaymentVerificationException;
 import com.manacommunity.api.payments.repository.RazorpayOrderRepository;
+import com.manacommunity.api.payments.service.PaymentAmountResolver;
 import com.manacommunity.api.payments.service.RazorpayPaymentService;
 import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.user.model.AppUser;
@@ -43,6 +44,7 @@ class RazorpayPaymentServiceTest {
     @Mock AuditService             auditService;
     @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
     @Mock com.manacommunity.api.platform.outbox.DomainEventPublisher domainEventPublisher;
+    @Mock PaymentAmountResolver   amountResolver;
     @Mock OrderClient              ordersApi;
 
     RazorpayPaymentService service;
@@ -52,7 +54,7 @@ class RazorpayPaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RazorpayPaymentService(orderRepository, properties, razorpayClient, auditService, eventPublisher, domainEventPublisher);
+        service = new RazorpayPaymentService(orderRepository, properties, razorpayClient, auditService, eventPublisher, domainEventPublisher, amountResolver);
 
         community = new Community();
         community.setId(1L);
@@ -63,6 +65,11 @@ class RazorpayPaymentServiceTest {
 
         lenient().when(properties.getCurrency()).thenReturn("INR");
         lenient().when(properties.getKeyId()).thenReturn("rzp_test_key");
+        lenient().when(amountResolver.resolve(any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> new PaymentAmountResolver.ResolvedAmount(
+                        inv.getArgument(0) != null ? inv.getArgument(0).toString() : "EVENT_REGISTRATION",
+                        inv.getArgument(4) != null ? inv.getArgument(4) : new BigDecimal("500.00"),
+                        true));
         razorpayClient.orders = ordersApi;
     }
 

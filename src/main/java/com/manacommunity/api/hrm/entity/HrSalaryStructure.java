@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -15,18 +16,18 @@ public class HrSalaryStructure {
     @Column(name = "organization_id", nullable = false) private Long organizationId;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "employee_id", nullable = false)
     private HrEmployee employee;
-    @Column(name = "ctc_annual", nullable = false) private Double ctcAnnual;
-    @Column(name = "basic_monthly", nullable = false) private Double basicMonthly;
-    @Column(name = "hra_monthly") @Builder.Default private Double hraMonthly = 0.0;
-    @Column(name = "da_monthly") @Builder.Default private Double daMonthly = 0.0;
-    @Column(name = "special_allowance_monthly") @Builder.Default private Double specialAllowanceMonthly = 0.0;
-    @Column(name = "other_allowances_monthly") @Builder.Default private Double otherAllowancesMonthly = 0.0;
-    @Column(name = "pf_employee_monthly") @Builder.Default private Double pfEmployeeMonthly = 0.0;
-    @Column(name = "pf_employer_monthly") @Builder.Default private Double pfEmployerMonthly = 0.0;
-    @Column(name = "esi_employee_monthly") @Builder.Default private Double esiEmployeeMonthly = 0.0;
-    @Column(name = "esi_employer_monthly") @Builder.Default private Double esiEmployerMonthly = 0.0;
-    @Column(name = "professional_tax_monthly") @Builder.Default private Double professionalTaxMonthly = 0.0;
-    @Column(name = "tds_monthly") @Builder.Default private Double tdsMonthly = 0.0;
+    @Column(name = "ctc_annual", nullable = false, precision = 14, scale = 2) private BigDecimal ctcAnnual;
+    @Column(name = "basic_monthly", nullable = false, precision = 14, scale = 2) private BigDecimal basicMonthly;
+    @Column(name = "hra_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal hraMonthly = BigDecimal.ZERO;
+    @Column(name = "da_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal daMonthly = BigDecimal.ZERO;
+    @Column(name = "special_allowance_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal specialAllowanceMonthly = BigDecimal.ZERO;
+    @Column(name = "other_allowances_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal otherAllowancesMonthly = BigDecimal.ZERO;
+    @Column(name = "pf_employee_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal pfEmployeeMonthly = BigDecimal.ZERO;
+    @Column(name = "pf_employer_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal pfEmployerMonthly = BigDecimal.ZERO;
+    @Column(name = "esi_employee_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal esiEmployeeMonthly = BigDecimal.ZERO;
+    @Column(name = "esi_employer_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal esiEmployerMonthly = BigDecimal.ZERO;
+    @Column(name = "professional_tax_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal professionalTaxMonthly = BigDecimal.ZERO;
+    @Column(name = "tds_monthly", precision = 14, scale = 2) @Builder.Default private BigDecimal tdsMonthly = BigDecimal.ZERO;
     @Column(name = "effective_from", nullable = false) private LocalDate effectiveFrom;
     @Column(name = "effective_to") private LocalDate effectiveTo;
     @Column(name = "created_by", nullable = false) private Long createdBy;

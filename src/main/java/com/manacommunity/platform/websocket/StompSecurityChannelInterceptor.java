@@ -1,7 +1,7 @@
 package com.manacommunity.platform.websocket;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -21,7 +21,6 @@ import java.time.Duration;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class StompSecurityChannelInterceptor implements ChannelInterceptor {
 
     private static final int MSG_RATE_LIMIT = 60;       // messages per window
@@ -30,6 +29,12 @@ public class StompSecurityChannelInterceptor implements ChannelInterceptor {
 
     private final WebSocketSessionTracker sessionTracker;
     private final StringRedisTemplate redisTemplate;
+
+    public StompSecurityChannelInterceptor(WebSocketSessionTracker sessionTracker,
+                                           @Autowired(required = false) StringRedisTemplate redisTemplate) {
+        this.sessionTracker = sessionTracker;
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -80,6 +85,7 @@ public class StompSecurityChannelInterceptor implements ChannelInterceptor {
     }
 
     private boolean isWithinMessageRateLimit(Long userId) {
+        if (redisTemplate == null) return true;
         String key = MSG_RATE_KEY_PREFIX + userId;
         try {
             Long count = redisTemplate.opsForValue().increment(key);

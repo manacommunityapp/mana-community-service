@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,22 +20,22 @@ public class HrPayslip {
     @Column(name = "working_days") private Integer workingDays;
     @Column(name = "paid_days") private Integer paidDays;
     @Column(name = "loss_of_pay_days") @Builder.Default private Integer lossOfPayDays = 0;
-    @Column(name = "basic_salary") @Builder.Default private Double basicSalary = 0.0;
-    @Column(name = "hra") @Builder.Default private Double hra = 0.0;
-    @Column(name = "da") @Builder.Default private Double da = 0.0;
-    @Column(name = "special_allowance") @Builder.Default private Double specialAllowance = 0.0;
-    @Column(name = "other_allowances") @Builder.Default private Double otherAllowances = 0.0;
-    @Column(name = "gross_salary") @Builder.Default private Double grossSalary = 0.0;
-    @Column(name = "pf_employee") @Builder.Default private Double pfEmployee = 0.0;
-    @Column(name = "pf_employer") @Builder.Default private Double pfEmployer = 0.0;
-    @Column(name = "esi_employee") @Builder.Default private Double esiEmployee = 0.0;
-    @Column(name = "esi_employer") @Builder.Default private Double esiEmployer = 0.0;
-    @Column(name = "professional_tax") @Builder.Default private Double professionalTax = 0.0;
-    @Column(name = "tds") @Builder.Default private Double tds = 0.0;
-    @Column(name = "other_deductions") @Builder.Default private Double otherDeductions = 0.0;
-    @Column(name = "total_deductions") @Builder.Default private Double totalDeductions = 0.0;
-    @Column(name = "net_salary") @Builder.Default private Double netSalary = 0.0;
-    @Column(name = "reimbursements_paid") @Builder.Default private Double reimbursementsPaid = 0.0;
+    @Column(name = "basic_salary", precision = 14, scale = 2) @Builder.Default private BigDecimal basicSalary = BigDecimal.ZERO;
+    @Column(name = "hra", precision = 14, scale = 2) @Builder.Default private BigDecimal hra = BigDecimal.ZERO;
+    @Column(name = "da", precision = 14, scale = 2) @Builder.Default private BigDecimal da = BigDecimal.ZERO;
+    @Column(name = "special_allowance", precision = 14, scale = 2) @Builder.Default private BigDecimal specialAllowance = BigDecimal.ZERO;
+    @Column(name = "other_allowances", precision = 14, scale = 2) @Builder.Default private BigDecimal otherAllowances = BigDecimal.ZERO;
+    @Column(name = "gross_salary", precision = 14, scale = 2) @Builder.Default private BigDecimal grossSalary = BigDecimal.ZERO;
+    @Column(name = "pf_employee", precision = 14, scale = 2) @Builder.Default private BigDecimal pfEmployee = BigDecimal.ZERO;
+    @Column(name = "pf_employer", precision = 14, scale = 2) @Builder.Default private BigDecimal pfEmployer = BigDecimal.ZERO;
+    @Column(name = "esi_employee", precision = 14, scale = 2) @Builder.Default private BigDecimal esiEmployee = BigDecimal.ZERO;
+    @Column(name = "esi_employer", precision = 14, scale = 2) @Builder.Default private BigDecimal esiEmployer = BigDecimal.ZERO;
+    @Column(name = "professional_tax", precision = 14, scale = 2) @Builder.Default private BigDecimal professionalTax = BigDecimal.ZERO;
+    @Column(name = "tds", precision = 14, scale = 2) @Builder.Default private BigDecimal tds = BigDecimal.ZERO;
+    @Column(name = "other_deductions", precision = 14, scale = 2) @Builder.Default private BigDecimal otherDeductions = BigDecimal.ZERO;
+    @Column(name = "total_deductions", precision = 14, scale = 2) @Builder.Default private BigDecimal totalDeductions = BigDecimal.ZERO;
+    @Column(name = "net_salary", precision = 14, scale = 2) @Builder.Default private BigDecimal netSalary = BigDecimal.ZERO;
+    @Column(name = "reimbursements_paid", precision = 14, scale = 2) @Builder.Default private BigDecimal reimbursementsPaid = BigDecimal.ZERO;
     @Column(name = "is_published", nullable = false) @Builder.Default private Boolean isPublished = false;
     @Column(name = "published_at") private LocalDateTime publishedAt;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;

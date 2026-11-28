@@ -134,8 +134,10 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getAllEvents(Long communityId, Long currentUserId) {
-        return eventRepo.findByCommunityIdOrderByStartDateDesc(communityId)
-                .stream().map(e -> toResponse(e, currentUserId)).toList();
+        List<EventCommunity> events = communityId != null
+                ? eventRepo.findByCommunityIdOrderByStartDateDesc(communityId)
+                : eventRepo.findAllByOrderByStartDateDesc();
+        return events.stream().map(e -> toResponse(e, currentUserId)).toList();
     }
 
     @Transactional(readOnly = true)

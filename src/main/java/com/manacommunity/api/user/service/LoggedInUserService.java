@@ -30,6 +30,12 @@ public class LoggedInUserService {
      * @throws ResourceNotFoundException if the user ID no longer exists in the DB
      */
     public AppUser resolve(UserPrincipal principal) {
+        if (principal == null) {
+            throw new ResourceNotFoundException("User", "principal", "null");
+        }
+        if (principal.getUser() != null) {
+            return principal.getUser();
+        }
         return userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", principal.getId().toString()));
     }

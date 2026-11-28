@@ -33,6 +33,14 @@ public class SyncCheckpoint {
     private Long lastSyncedChangeId = 0L;
 
     @Builder.Default
+    @Column(name = "last_synced_seq", nullable = false)
+    private Long lastSyncedSeq = 0L;
+
+    @Builder.Default
+    @Column(name = "device_status", nullable = false, length = 20)
+    private String deviceStatus = "ACTIVE";
+
+    @Builder.Default
     @Column(name = "last_sync_timestamp", nullable = false)
     private LocalDateTime lastSyncTimestamp = LocalDateTime.now();
 

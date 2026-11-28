@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -30,7 +31,7 @@ public class CommuteRideResponse {
     private String rideType;
     private int totalSeats;
     private int availableSeats;
-    private Double pricePerSeat;
+    private BigDecimal pricePerSeat;
     private boolean free;
     private String vehicleType;
     private String vehicleNumber;

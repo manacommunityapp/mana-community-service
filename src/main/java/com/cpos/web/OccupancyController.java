@@ -16,7 +16,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/cpos/occupancy")
 @RequiredArgsConstructor
-@CrossOrigin
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class OccupancyController {
 

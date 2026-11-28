@@ -1,13 +1,18 @@
 package com.manacommunity.api.unit.tenant;
 
+import com.manacommunity.api.events.entity.EventAuctionItem;
+import com.manacommunity.api.events.repository.EventAuctionItemRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.security.CommunityMembershipService;
 import com.manacommunity.api.security.StompSubscriptionInterceptor;
 import com.manacommunity.api.socialcircle.repository.KittyPartyGameRoomRepository;
+import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
 import com.manacommunity.api.sports.scheduler.SportsTournamentConfig;
+import com.manacommunity.api.sports.scheduler.SportsTournamentMatch;
 import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,8 +26,10 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -159,5 +166,54 @@ class StompTenantSubscriptionSecurityTest {
         Message<?> result = interceptor.preSend(msg, channel);
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("Plural /topic/matches/{id}/live is permitted for own community and dropped cross-tenant")
+    void pluralMatchesLiveTopicChecksCommunity() {
+        Community comm = Community.builder().name("Palm Grove").build();
+        comm.setId(100L);
+        SportsTournamentMatch match = new SportsTournamentMatch();
+        match.setId(55L);
+        match.setCommunity(comm);
+
+        when(matchRepository.findById(55L)).thenReturn(Optional.of(match));
+        when(membershipService.isUserAuthorizedForCommunity(eq(10L), eq(100L))).thenReturn(true);
+        assertThat(interceptor.preSend(createSubscribeMessage(10L, "/topic/matches/55/live"), channel)).isNotNull();
+
+        when(membershipService.isUserAuthorizedForCommunity(eq(20L), eq(100L))).thenReturn(false);
+        assertThat(interceptor.preSend(createSubscribeMessage(20L, "/topic/matches/55/live"), channel)).isNull();
+    }
+
+    @Test
+    @DisplayName("/topic/sports/live is permitted for authenticated community member")
+    void sportsLiveTopicPermitsAuthenticatedMember() {
+        AppUser user = new AppUser();
+        user.setId(10L);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(membershipService.getAuthorizedCommunityIds(user)).thenReturn(Set.of(100L));
+
+        assertThat(interceptor.preSend(createSubscribeMessage(10L, "/topic/sports/live"), channel)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("EventAuctionItem /topic/auction/{itemId} resolves community via EventAuctionItemRepository")
+    void eventAuctionItemTopicChecksCommunity() {
+        EventAuctionItemRepository eventItemRepo = org.mockito.Mockito.mock(EventAuctionItemRepository.class);
+        SportsAuctionConfigRepository sportsAuctionRepo = org.mockito.Mockito.mock(SportsAuctionConfigRepository.class);
+        ReflectionTestUtils.setField(interceptor, "eventAuctionItemRepository", eventItemRepo);
+        ReflectionTestUtils.setField(interceptor, "sportsAuctionConfigRepository", sportsAuctionRepo);
+
+        Community comm = Community.builder().name("Palm Grove").build();
+        comm.setId(100L);
+        EventAuctionItem item = EventAuctionItem.builder().community(comm).name("Silver Lamp").build();
+        item.setId(77L);
+
+        when(configRepository.findById(77L)).thenReturn(Optional.empty());
+        when(sportsAuctionRepo.findById(77L)).thenReturn(Optional.empty());
+        when(eventItemRepo.findById(77L)).thenReturn(Optional.of(item));
+        when(membershipService.isUserAuthorizedForCommunity(eq(10L), eq(100L))).thenReturn(true);
+
+        assertThat(interceptor.preSend(createSubscribeMessage(10L, "/topic/auction/77"), channel)).isNotNull();
     }
 }

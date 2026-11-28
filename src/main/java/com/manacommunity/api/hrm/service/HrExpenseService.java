@@ -10,6 +10,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,13 +31,15 @@ public class HrExpenseService {
         claim.setOrganizationId(orgId);
         claim.setEmployee(emp);
         HrExpenseClaim saved = claimRepository.save(claim);
-        double total = 0;
+        BigDecimal total = BigDecimal.ZERO;
         for (HrExpenseItem item : items) {
             item.setExpenseClaim(saved);
             itemRepository.save(item);
-            total += item.getAmount();
+            if (item.getAmount() != null) {
+                total = total.add(item.getAmount());
+            }
         }
-        saved.setTotalAmount(total);
+        saved.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP));
         return claimRepository.save(saved);
     }
 
@@ -50,12 +54,12 @@ public class HrExpenseService {
     }
 
     @Transactional
-    public HrExpenseClaim approveClaim(Long orgId, Long claimId, Double approvedAmount, Long approvedBy) {
+    public HrExpenseClaim approveClaim(Long orgId, Long claimId, BigDecimal approvedAmount, Long approvedBy) {
         HrExpenseClaim claim = claimRepository.findById(claimId)
             .orElseThrow(() -> new EntityNotFoundException("Claim not found"));
         if (!claim.getOrganizationId().equals(orgId)) throw new AccessDeniedException("Access denied");
         claim.setStatus("APPROVED");
-        claim.setApprovedAmount(approvedAmount != null ? approvedAmount : claim.getTotalAmount());
+        claim.setApprovedAmount(approvedAmount != null ? approvedAmount.setScale(2, RoundingMode.HALF_UP) : claim.getTotalAmount());
         claim.setApprovedBy(approvedBy);
         claim.setApprovedAt(LocalDateTime.now());
         return claimRepository.save(claim);

@@ -81,6 +81,15 @@ public class KittyPartyCircleController {
         return ResponseEntity.ok(Map.of("success", true, "message", "Join request submitted"));
     }
 
+    @GetMapping("/{circleId}/join-requests")
+    public ResponseEntity<List<JoinRequestResponse>> getPendingJoinRequests(
+            @PathVariable Long circleId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(circleService.getPendingJoinRequests(circleId, user));
+    }
+
     @PostMapping("/{circleId}/join-requests/{requestId}/approve")
     public ResponseEntity<Map<String, Object>> approveJoinRequest(
             @PathVariable Long circleId,

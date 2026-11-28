@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.net.InetAddress;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -76,7 +77,9 @@ public class DistributedJobLockService {
             """;
 
         try {
-            int updated = jdbcTemplate.update(sql, jobName, now, lockUntil, NODE_IDENTIFIER, now);
+            Timestamp nowTs = Timestamp.from(now);
+            Timestamp lockUntilTs = Timestamp.from(lockUntil);
+            int updated = jdbcTemplate.update(sql, jobName, nowTs, lockUntilTs, NODE_IDENTIFIER, nowTs);
             return updated > 0;
         } catch (Exception e) {
             log.warn("Failed to acquire distributed lock for '{}': {}", jobName, e.getMessage());

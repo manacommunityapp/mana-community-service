@@ -39,6 +39,18 @@ public class Poll {
     @Builder.Default
     private boolean anonymous = false;
 
+    @Column(name = "voting_mode", nullable = false, length = 32)
+    @Builder.Default
+    private String votingMode = "ONE_FLAT_ONE_VOTE"; // ONE_FLAT_ONE_VOTE, UDS_AREA_WEIGHTED, SHARE_CERTIFICATE
+
+    @Column(name = "exclude_defaulters_over_days", nullable = false)
+    @Builder.Default
+    private Integer excludeDefaultersOverDays = 90;
+
+    @Column(name = "owners_only", nullable = false)
+    @Builder.Default
+    private boolean ownersOnly = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;

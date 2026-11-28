@@ -11,7 +11,6 @@ import java.util.List;
 @RestController("homeServiceContextualChatController")
 @RequestMapping("/api/v1/home-services/chat")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceContextualChatController {
     private final HomeServiceContextualChatService chatService;
 

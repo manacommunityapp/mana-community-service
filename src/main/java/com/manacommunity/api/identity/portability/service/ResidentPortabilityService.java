@@ -162,7 +162,7 @@ public class ResidentPortabilityService {
         return reputationRepo.findByResidentIdAndCommunityId(residentId, communityId);
     }
 
-    @Scheduled(cron = "0 3 1 * *")
+    @Scheduled(cron = "0 0 3 1 * *")
     public void recomputeAllScores() {
         log.info("Scheduled: recomputing all resident reputation scores");
         // Recompute per existing score records

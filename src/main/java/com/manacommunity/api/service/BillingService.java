@@ -9,7 +9,6 @@ import com.manacommunity.api.repository.ExpenseRepository;
 import com.manacommunity.api.repository.InvoiceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +33,12 @@ public class BillingService {
     private final InvoiceRepository invoiceRepository;
     private final AppUserRepository appUserRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
     public BillingService(ExpenseRepository expenseRepository,
                           InvoiceRepository invoiceRepository,
                           AppUserRepository appUserRepository) {
@@ -54,16 +59,36 @@ public class BillingService {
     }
 
     /**
-     * Asynchronously generates invoices for all active residents in the
-     * community when an expense is approved. The expense total is split
-     * equally across all residents, with GST applied per invoice.
+     * Enqueues batch invoice + mock PDF generation for all active residents onto
+     * {@code mana-report-jobs} after the approving transaction commits, falling back
+     * to direct in-process execution when SQS is disabled.
      *
      * @param expenseId the approved expense to bill for
-     * @return CompletableFuture with the count of generated invoices
+     * @return CompletableFuture with the generated count (0 immediately when offloaded to SQS)
      */
-    @Async
     @Transactional
     public CompletableFuture<Integer> batchGenerateInvoices(Long expenseId) {
+        if (sqsMessagePublisher != null && sqsProperties != null) {
+            var payload = new com.manacommunity.api.events.sqs.ReportJobSqsHandler.BatchInvoicePayload(expenseId);
+            java.util.concurrent.atomic.AtomicInteger fallbackCount = new java.util.concurrent.atomic.AtomicInteger(0);
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getReportJobs(),
+                    "BATCH_INVOICE_GENERATION",
+                    payload,
+                    () -> fallbackCount.set(executeBatchGenerateInvoices(expenseId))
+            );
+            return CompletableFuture.completedFuture(fallbackCount.get());
+        }
+        return CompletableFuture.completedFuture(executeBatchGenerateInvoices(expenseId));
+    }
+
+    /**
+     * Executes batch invoice generation in a dedicated transaction. Invoked by
+     * {@link com.manacommunity.api.events.sqs.ReportJobSqsHandler} on SQS consumption
+     * or directly as the local fallback.
+     */
+    @Transactional
+    public int executeBatchGenerateInvoices(Long expenseId) {
         log.info("Starting batch invoice generation for expense {}", expenseId);
 
         Expense expense = expenseRepository.findById(expenseId)
@@ -74,7 +99,7 @@ public class BillingService {
         List<AppUser> residents = appUserRepository.findByCommunityIdAndIsActiveTrue(community.getId());
         if (residents.isEmpty()) {
             log.warn("No active residents found for community {} — skipping invoice generation", community.getId());
-            return CompletableFuture.completedFuture(0);
+            return 0;
         }
 
         BigDecimal perResidentAmount = expense.getAmount()
@@ -115,7 +140,7 @@ public class BillingService {
         log.info("Batch invoice generation complete: {} invoices for expense {} in community {}",
                 generated, expenseId, community.getId());
 
-        return CompletableFuture.completedFuture(generated);
+        return generated;
     }
 
     /**

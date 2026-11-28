@@ -1,5 +1,5 @@
 -- Coach packages
-CREATE TABLE coach_package (
+CREATE TABLE IF NOT EXISTS coach_package (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     coach_id        BIGINT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE coach_package (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE coach_package_enrollment (
+CREATE TABLE IF NOT EXISTS coach_package_enrollment (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     package_id      BIGINT NOT NULL REFERENCES coach_package(id),
@@ -27,7 +27,7 @@ CREATE TABLE coach_package_enrollment (
 );
 
 -- Referee assignments
-CREATE TABLE referee_assignment (
+CREATE TABLE IF NOT EXISTS referee_assignment (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     referee_id      BIGINT NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE referee_assignment (
 );
 
 -- Recurring court slot subscriptions
-CREATE TABLE court_slot_subscription (
+CREATE TABLE IF NOT EXISTS court_slot_subscription (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     user_id         BIGINT NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE court_slot_subscription (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cp_comm    ON coach_package(community_id, coach_id, active);
-CREATE INDEX idx_cpe_user   ON coach_package_enrollment(user_id, active);
-CREATE INDEX idx_ra_event   ON referee_assignment(event_id, event_type);
-CREATE INDEX idx_css_court  ON court_slot_subscription(court_id, day_of_week, active);
+CREATE INDEX IF NOT EXISTS idx_cp_comm    ON coach_package(community_id, coach_id, active);
+CREATE INDEX IF NOT EXISTS idx_cpe_user   ON coach_package_enrollment(user_id, active);
+CREATE INDEX IF NOT EXISTS idx_ra_event   ON referee_assignment(event_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_css_court  ON court_slot_subscription(court_id, day_of_week, active);

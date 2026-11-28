@@ -33,6 +33,7 @@ public class DeviceVisitorOtp {
     @Column(name = "visitor_name", length = 200)
     private String visitorName;
 
+    @Builder.Default
     @Column(name = "valid_from", nullable = false)
     private Instant validFrom = Instant.now();
 
@@ -43,5 +44,20 @@ public class DeviceVisitorOtp {
     private Instant usedAt;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean revoked = false;
+
+    @Column(name = "derivation_mode", nullable = false, length = 24)
+    @Builder.Default
+    private String derivationMode = "ONLINE_RANDOM";
+
+    @Column(name = "slot_epoch_start")
+    private Long slotEpochStart;
+
+    @Column(name = "slot_duration_buckets")
+    private Integer slotDurationBuckets;
+
+    @Column(name = "single_use", nullable = false)
+    @Builder.Default
+    private boolean singleUse = true;
 }

@@ -12,4 +12,5 @@ public class RegisterDriverRequest {
     @NotBlank private String vehicleNumberPlate;
               private String vehicleColor;
               private Integer vehicleYear;
+              private Long serviceZoneId;
 }

@@ -30,4 +30,14 @@ public class MobilityCarpoolOfferDto {
     private String vehicleModel;
     private String vehicleNumber;
     private String status;
+    private Double originLat;
+    private Double originLng;
+    private Double destLat;
+    private Double destLng;
+    private Double maxDetourKm;
+    private Double routeDetourKm;
+    private boolean allowCrossCommunity;
+    private boolean parentConsentRequired;
+    private Long communityId;
+    private String communityName;
 }

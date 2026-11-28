@@ -28,6 +28,11 @@ public class SportsCricHeroesController {
     private final LoggedInUserService loggedInUserService;
     private final PermissionCheckService permissionCheckService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
     @PostMapping("/link")
     public ResponseEntity<SportsCricHeroesLinkResponse> linkProfile(
             @Valid @RequestBody SportsCricHeroesLinkRequest request,
@@ -65,6 +70,32 @@ public class SportsCricHeroesController {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_AUCTION_CONFIG);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(cricHeroesService.refreshProfile(playerId, user));
+    }
+
+    /**
+     * Async CricHeroes refresh queued via SQS ({@code mana-external-sync}) so web threads
+     * never block on external HTML scraping.
+     */
+    @PostMapping("/profile/{playerId}/refresh-async")
+    public ResponseEntity<Map<String, Object>> refreshProfileAsync(
+            @PathVariable Long playerId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_AUCTION_CONFIG);
+        AppUser user = loggedInUserService.resolve(principal);
+        if (sqsMessagePublisher != null && sqsProperties != null) {
+            sqsMessagePublisher.publish(
+                    sqsProperties.getQueues().getExternalSync(),
+                    "CRICHEROES_REFRESH",
+                    Map.of("playerId", playerId, "userId", user.getId()),
+                    () -> cricHeroesService.refreshProfile(playerId, user)
+            );
+        } else {
+            cricHeroesService.refreshProfile(playerId, user);
+        }
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "QUEUED",
+                "playerId", playerId
+        ));
     }
 
     @GetMapping("/preview")

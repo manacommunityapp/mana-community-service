@@ -94,6 +94,18 @@ public class CashfreePaymentService {
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
 
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
+
     /** Returns a checkout order only to its payer, including its session credentials. */
     @Transactional(readOnly = true)
     public CashfreeOrderResponse getUserOrder(String manaOrderId, AppUser user) {
@@ -394,11 +406,9 @@ public class CashfreePaymentService {
                         "GatewayPaymentCaptured", cashfreeCaptured,
                         order.getCommunity() != null ? order.getCommunity().getId() : null);
 
-                // Wire to business workflows based on referenceType.
-                dispatchBusinessConfirmation(order);
-
-                // Notify the payer.
-                dispatchPaymentNotification(order, true);
+                // Wire to business workflows & notify the payer asynchronously via SQS after commit.
+                enqueueBusinessConfirmation(order);
+                enqueuePaymentNotification(order, true);
             }
         }, () -> log.warn("Webhook PAYMENT_SUCCESS: no local order for manaOrderId={}", manaOrderId));
     }
@@ -422,7 +432,7 @@ public class CashfreePaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
                 log.info("Webhook PAYMENT_FAILED: order {} FAILED: {}", manaOrderId, errorDesc);
-                dispatchPaymentNotification(order, false);
+                enqueuePaymentNotification(order, false);
             }
         });
     }
@@ -521,6 +531,13 @@ public class CashfreePaymentService {
         switch (order.getReferenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
             case "GROUP_BUY_ORDER" -> confirmGroupBuyOrder(order);
+            case "MOBILITY_TRIP", "MOBILITY_CARPOOL" -> {
+                if (mobilityPaymentCallbackService != null) {
+                    mobilityPaymentCallbackService.confirmPayment(
+                            order.getReferenceType(), order.getReferenceId(),
+                            order.getManaOrderId(), order.getCfPaymentId(), "CASHFREE");
+                }
+            }
             case "MARKET_STALL_BOOKING" -> {
                 if (order.getUser() != null) {
                     eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(order.getReferenceType(), order.getReferenceId(), order.getUser().getId(), order.getAmount()));
@@ -574,6 +591,51 @@ public class CashfreePaymentService {
     }
 
     // ─── Notification Dispatch ────────────────────────────────────────────────
+
+    private void enqueueBusinessConfirmation(CashfreeOrder order) {
+        if (order.getReferenceType() == null) return;
+        if (sqsMessagePublisher != null && sqsProperties != null && paymentEventsSqsHandler != null) {
+            var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.CashfreeBusinessConfirmationPayload(
+                    order.getManaOrderId(),
+                    order.getCfPaymentId(),
+                    order.getPaymentMethod(),
+                    order.getAmount(),
+                    order.getUser() != null ? order.getUser().getId() : null,
+                    order.getReferenceType(),
+                    order.getReferenceId()
+            );
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getPaymentEvents(),
+                    "CASHFREE_BUSINESS_CONFIRMATION",
+                    payload,
+                    () -> dispatchBusinessConfirmation(order)
+            );
+        } else {
+            dispatchBusinessConfirmation(order);
+        }
+    }
+
+    private void enqueuePaymentNotification(CashfreeOrder order, boolean success) {
+        if (order.getUser() == null) return;
+        if (sqsMessagePublisher != null && sqsProperties != null && paymentEventsSqsHandler != null) {
+            var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.PaymentNotificationPayload(
+                    order.getUser().getId(),
+                    order.getManaOrderId(),
+                    "CASHFREE",
+                    order.getAmount(),
+                    success,
+                    order.getFailureReason()
+            );
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getPaymentEvents(),
+                    "PAYMENT_NOTIFICATION",
+                    payload,
+                    () -> paymentEventsSqsHandler.deliverPaymentNotification(payload)
+            );
+        } else {
+            dispatchPaymentNotification(order, success);
+        }
+    }
 
     private void dispatchPaymentNotification(CashfreeOrder order, boolean success) {
         if (order.getUser() == null) return;

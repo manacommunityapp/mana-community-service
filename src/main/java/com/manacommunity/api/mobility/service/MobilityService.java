@@ -19,12 +19,15 @@ public interface MobilityService {
     void rateTrip(AppUser user, Long tripId, RateTripRequest req);
     MobilityStatsDto getPassengerStats(AppUser user);
     List<MobilityServiceZoneDto> getServiceZones(AppUser user);
+    MobilityReceiptDto getTripReceipt(AppUser user, Long tripId);
+    MobilityTripDto confirmTripPayment(AppUser user, Long tripId, String paymentOrderId, String paymentRef, String gateway);
 
     // ── Driver ─────────────────────────────────────────────────────
     MobilityDriverDto getMyDriverProfile(AppUser user);
     MobilityDriverDto registerDriver(AppUser user, RegisterDriverRequest req);
     MobilityDriverDto setAvailability(AppUser user, String availability);
     MobilityDriverDto updateDriverLocation(AppUser user, double latitude, double longitude);
+    MobilityDriverDto assignDriverServiceZone(AppUser user, Long serviceZoneId);
     List<MobilityDriverDocumentDto> getMyDocuments(AppUser user);
     MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file);
     List<MobilityVehicleDto> getMyVehicles(AppUser user);
@@ -49,7 +52,14 @@ public interface MobilityService {
     Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
                                                       String travelAt, int timeWindowMinutes, int seats,
                                                        int luggageCount, int page, int size);
+    Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
+                                                      String travelAt, int timeWindowMinutes, int seats,
+                                                      int luggageCount, Double pickupLat, Double pickupLng,
+                                                      Double destLat, Double destLng, Double maxDetourKm,
+                                                      boolean allowCrossCommunity, int page, int size);
     AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req);
+    AirportRideRequestDto approveRequestGuardianConsent(AppUser guardian, Long requestId, boolean approved);
+    JourneyBookingDto approveBookingGuardianConsent(AppUser guardian, Long bookingId, boolean approved);
     Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
     Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size);
     void cancelCarpoolBooking(AppUser user, Long offerId);
@@ -71,4 +81,11 @@ public interface MobilityService {
     Page<MobilityTripDto> getActiveTripsOps(int page, int size);
     void suspendDriver(AppUser ops, Long driverId, String reason);
     void reinstateDriver(AppUser ops, Long driverId);
+    List<MobilityServiceZoneDto> getAllServiceZonesOps(AppUser ops);
+    MobilityServiceZoneDto createServiceZone(AppUser ops, ServiceZoneRequest req);
+    MobilityServiceZoneDto updateServiceZone(AppUser ops, Long zoneId, ServiceZoneRequest req);
+    MobilityServiceZoneDto updateServiceZoneStatus(AppUser ops, Long zoneId, boolean active);
+    MobilityDriverDto opsAssignDriverServiceZone(AppUser ops, Long driverId, Long serviceZoneId);
+    MobilityOpsAnalyticsDto getOpsAnalytics(AppUser ops);
+    java.math.BigDecimal settleDriverEarnings(AppUser ops, Long driverId);
 }

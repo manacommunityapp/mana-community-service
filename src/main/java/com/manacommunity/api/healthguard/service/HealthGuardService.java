@@ -33,6 +33,15 @@ public class HealthGuardService {
     private final AppUserRepository appUserRepository;
     private final ExpoPushService expoPushService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.healthguard.sqs.EmergencySosSqsHandler emergencySosSqsHandler;
+
     public HealthGuardService(
             HealthProfileRepository profileRepository,
             EmergencyContactRepository contactRepository,
@@ -179,46 +188,59 @@ public class HealthGuardService {
         incident.setAlertsSent(alertsSent);
         incident = incidentRepository.save(incident);
 
-        // Push notifications to contacts who are also app users
+        // Push notifications to contacts & nearby community responders (decoupled via SQS after commit)
         try {
             String triggererName = appUserRepository.findById(userId)
                     .map(u -> u.getFullName() != null ? u.getFullName() : "A community member")
                     .orElse("A community member");
+
             List<Long> contactUserIds = contacts.stream()
                     .map(c -> appUserRepository.findByPhone(c.getPhone()))
                     .filter(Optional::isPresent)
                     .map(opt -> opt.get().getId())
                     .collect(Collectors.toList());
-            if (!contactUserIds.isEmpty()) {
-                String pushBody = incident.getDescription() != null
-                        ? incident.getDescription() : "Needs immediate assistance";
-                expoPushService.sendToUsers(contactUserIds,
-                        "🆘 SOS from " + triggererName,
-                        pushBody,
-                        Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
-                        "emergency");
-            }
-        } catch (Exception ignored) { /* push failure must not abort SOS */ }
 
-        // Push notifications to nearby available community responders
-        try {
             List<Long> responderUserIds = responderRepository
                     .findByIsActiveTrueAndAvailabilityStatus(ResponderAvailability.AVAILABLE)
                     .stream()
                     .map(r -> r.getUserId())
                     .filter(rid -> !rid.equals(userId))
                     .collect(Collectors.toList());
-            if (!responderUserIds.isEmpty()) {
-                String responderName = appUserRepository.findById(userId)
-                        .map(u -> u.getFullName() != null ? u.getFullName() : "A community member")
-                        .orElse("A community member");
-                String pushBody = incident.getDescription() != null
-                        ? incident.getDescription() : "Nearby resident needs immediate assistance";
-                expoPushService.sendToUsers(responderUserIds,
-                        "🚨 SOS Alert — " + responderName,
-                        pushBody,
-                        Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
-                        "emergency");
+
+            if (!contactUserIds.isEmpty() || !responderUserIds.isEmpty()) {
+                var sosPayload = new com.manacommunity.api.healthguard.sqs.EmergencySosSqsHandler.SosTriggeredPayload(
+                        incident.getId(),
+                        triggererName,
+                        incident.getDescription(),
+                        contactUserIds,
+                        responderUserIds
+                );
+                if (sqsMessagePublisher != null && sqsProperties != null && emergencySosSqsHandler != null) {
+                    sqsMessagePublisher.publishAfterCommit(
+                            sqsProperties.getQueues().getEmergencySos(),
+                            "SOS_TRIGGERED",
+                            sosPayload,
+                            () -> emergencySosSqsHandler.deliverSosTriggered(sosPayload));
+                } else {
+                    if (!contactUserIds.isEmpty()) {
+                        String pushBody = incident.getDescription() != null
+                                ? incident.getDescription() : "Needs immediate assistance";
+                        expoPushService.sendToUsers(contactUserIds,
+                                "🆘 SOS from " + triggererName,
+                                pushBody,
+                                Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
+                                "emergency");
+                    }
+                    if (!responderUserIds.isEmpty()) {
+                        String pushBody = incident.getDescription() != null
+                                ? incident.getDescription() : "Nearby resident needs immediate assistance";
+                        expoPushService.sendToUsers(responderUserIds,
+                                "🚨 SOS Alert — " + triggererName,
+                                pushBody,
+                                Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
+                                "emergency");
+                    }
+                }
             }
         } catch (Exception ignored) { /* push failure must not abort SOS */ }
 

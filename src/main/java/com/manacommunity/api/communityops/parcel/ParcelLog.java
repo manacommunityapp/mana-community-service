@@ -36,6 +36,7 @@ public class ParcelLog {
 
     private String description;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ParcelStatus status = ParcelStatus.RECEIVED;
@@ -43,6 +44,7 @@ public class ParcelLog {
     @Column(name = "received_by", nullable = false)
     private Long receivedBy;
 
+    @Builder.Default
     @Column(name = "received_at", nullable = false)
     private Instant receivedAt = Instant.now();
 
@@ -63,6 +65,7 @@ public class ParcelLog {
 
     private String notes;
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

@@ -46,6 +46,22 @@ public class SyncChangeLog {
     @Column(name = "client_mutation_id", nullable = false, unique = true, length = 100)
     private String clientMutationId;
 
+    @Column(name = "device_id", length = 100)
+    private String deviceId;
+
+    @Column(name = "local_seq")
+    private Long localSeq;
+
+    @Column(name = "pass_nonce", length = 128)
+    private String passNonce;
+
+    @Column(name = "conflict_reason", length = 500)
+    private String conflictReason;
+
+    @Builder.Default
+    @Column(name = "offline_override", nullable = false)
+    private boolean offlineOverride = false;
+
     @Column(name = "client_timestamp", nullable = false)
     private LocalDateTime clientTimestamp;
 

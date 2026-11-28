@@ -6,6 +6,7 @@ import com.manacommunity.api.sports.service.*;
 import com.manacommunity.api.sports.scheduler.*;
 import com.manacommunity.api.sports.controller.*;
 
+import com.manacommunity.api.audit.TamperResistantAuditService;
 import com.manacommunity.api.cfbos.accounting.engine.AccountingEngine;
 import com.manacommunity.api.cfbos.invoice.entity.CfbosInvoice;
 import com.manacommunity.api.cfbos.invoice.enums.InvoiceStatus;
@@ -43,13 +44,14 @@ class PaymentEngineTest {
     @Mock private CfbosInvoiceRepository invoiceRepository;
     @Mock private DocumentSequenceService documentSequenceService;
     @Mock private AccountingEngine accountingEngine;
+    @Mock private TamperResistantAuditService auditService;
 
     private PaymentEngine paymentEngine;
 
     @BeforeEach
     void setUp() {
         paymentEngine = new PaymentEngine(
-                paymentRepository, receiptRepository, invoiceRepository, documentSequenceService, accountingEngine
+                paymentRepository, receiptRepository, invoiceRepository, documentSequenceService, accountingEngine, auditService
         );
     }
 

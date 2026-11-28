@@ -25,9 +25,11 @@ public class MoveChecklistItem {
     @Column(name = "item_name", nullable = false)
     private String itemName;
 
+    @Builder.Default
     @Column(name = "is_mandatory", nullable = false)
     private boolean mandatory = false;
 
+    @Builder.Default
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
 }

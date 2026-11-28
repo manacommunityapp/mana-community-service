@@ -6,9 +6,13 @@ import com.manacommunity.api.model.Community;
 
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.response.CommunityResponse;
+import com.manacommunity.api.response.PlatformPublicOverviewResponse;
+import com.manacommunity.api.response.PlatformPublicOverviewResponse.ShowcaseItemDto;
+import com.manacommunity.api.response.PlatformPublicOverviewResponse.UpdatePublicConfigRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.CommunityBlockConfigService;
 import com.manacommunity.api.service.CommunityService;
+import com.manacommunity.api.service.PlatformPublicService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +40,34 @@ public class CommunityController {
 
     @Autowired
     private LoggedInUserService loggedInUserService;
+
+    @Autowired
+    private PlatformPublicService platformPublicService;
+
+    /**
+     * GET /api/communities/public/overview
+     * Public pre-login endpoint returning live DB counts (active residents, active
+     * societies, cities covered), sanitized society summaries, and DB-stored onboarding
+     * showcase items/config. Never exposes invite codes or PII.
+     */
+    @GetMapping("/public/overview")
+    public ResponseEntity<PlatformPublicOverviewResponse> getPublicOverview() {
+        return ResponseEntity.ok(platformPublicService.getPublicOverview());
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PutMapping("/public/config")
+    public ResponseEntity<PlatformPublicOverviewResponse> updatePublicConfig(
+            @RequestBody UpdatePublicConfigRequest request) {
+        return ResponseEntity.ok(platformPublicService.updatePublicConfig(request));
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PutMapping("/public/showcase")
+    public ResponseEntity<List<ShowcaseItemDto>> updatePublicShowcase(
+            @RequestBody List<ShowcaseItemDto> items) {
+        return ResponseEntity.ok(platformPublicService.updateShowcaseItems(items));
+    }
 
     /**
      * GET /api/communities

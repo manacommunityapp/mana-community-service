@@ -13,17 +13,19 @@ public interface EventCommunityRepository extends JpaRepository<EventCommunity, 
 
     List<EventCommunity> findByCommunityIdOrderByStartDateDesc(Long communityId);
 
+    List<EventCommunity> findAllByOrderByStartDateDesc();
+
     List<EventCommunity> findByCreatedByIdOrderByCreatedAtDesc(Long userId);
 
     Optional<EventCommunity> findByIdAndCommunity_Id(Long id, Long communityId);
 
-    @Query("SELECT e FROM EventCommunity e WHERE e.community.id = :communityId " +
+    @Query("SELECT e FROM EventCommunity e WHERE (:communityId IS NULL OR e.community.id = :communityId) " +
             "AND e.status <> com.manacommunity.api.events.entity.EventCommunity.EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE)) " +
             "ORDER BY e.startDate ASC")
     List<EventCommunity> findUpcomingByCommunity(@Param("communityId") Long communityId);
 
-    @Query("SELECT e FROM EventCommunity e WHERE e.community.id = :communityId AND e.type = :type " +
+    @Query("SELECT e FROM EventCommunity e WHERE (:communityId IS NULL OR e.community.id = :communityId) AND e.type = :type " +
             "AND e.status <> com.manacommunity.api.events.entity.EventCommunity.EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE)) " +
             "ORDER BY e.startDate ASC")

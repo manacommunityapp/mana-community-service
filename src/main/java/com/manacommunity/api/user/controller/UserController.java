@@ -406,6 +406,19 @@ public class UserController {
     }
 
     /**
+     * Updates the currently authenticated user's profile (/api/users/me).
+     */
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<UserResponse> updateCurrentProfile(
+            @RequestBody UpdateUserRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return updateUser(loggedInUser.getId(), req, principal);
+    }
+
+    /**
      * Updates an existing user by ID (used for self profile update fallback or admin user update).
      */
     @PutMapping("/{id}")
@@ -512,6 +525,7 @@ public class UserController {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
             user.setFailedLoginAttempts(0);
             user.setLockedUntil(null);
+            user.setTokenInvalidatedBefore(java.time.LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
         }
 
         if (req.getTower() != null) user.setTower(req.getTower());

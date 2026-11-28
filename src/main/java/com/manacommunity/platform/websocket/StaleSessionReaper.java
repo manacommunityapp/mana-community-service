@@ -1,7 +1,7 @@
 package com.manacommunity.platform.websocket;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -14,34 +14,46 @@ import java.util.Set;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class StaleSessionReaper {
 
     private static final String SESSION_KEY_PATTERN = "ws:sessions:*";
     private static final int MAX_SCAN_COUNT = 200;
 
     private final StringRedisTemplate redisTemplate;
+    private final WebSocketSessionTracker sessionTracker;
+
+    public StaleSessionReaper(
+            @Autowired(required = false) StringRedisTemplate redisTemplate,
+            @Autowired(required = false) WebSocketSessionTracker sessionTracker) {
+        this.redisTemplate = redisTemplate;
+        this.sessionTracker = sessionTracker;
+    }
 
     /**
-     * Every 5 minutes, scan for user session sets that have zero members and
-     * remove the empty key to avoid unbounded growth of stale Redis keys.
+     * Every 5 minutes, remove orphaned WebSocket sessions left by dead nodes and
+     * any empty session sets in Redis.
      */
     @Scheduled(fixedDelayString = "${app.websocket.session-reaper.interval-ms:300000}")
     public void reapStaleSessions() {
+        if (redisTemplate == null) return;
         try {
-            Set<String> keys = redisTemplate.keys(SESSION_KEY_PATTERN);
-            if (keys == null || keys.isEmpty()) return;
-
             int reaped = 0;
-            for (String key : keys) {
-                Long size = redisTemplate.opsForSet().size(key);
-                if (size != null && size == 0) {
-                    redisTemplate.delete(key);
-                    reaped++;
+            if (sessionTracker != null) {
+                reaped += sessionTracker.reapStaleSessions();
+            } else {
+                Set<String> keys = redisTemplate.keys(SESSION_KEY_PATTERN);
+                if (keys != null) {
+                    for (String key : keys) {
+                        Long size = redisTemplate.opsForSet().size(key);
+                        if (size != null && size == 0) {
+                            redisTemplate.delete(key);
+                            reaped++;
+                        }
+                    }
                 }
             }
             if (reaped > 0) {
-                log.info("StaleSessionReaper: removed {} empty session keys", reaped);
+                log.info("StaleSessionReaper: removed {} stale WebSocket session entries/keys", reaped);
             }
         } catch (Exception e) {
             log.debug("StaleSessionReaper: Redis unavailable, skipping reap: {}", e.getMessage());

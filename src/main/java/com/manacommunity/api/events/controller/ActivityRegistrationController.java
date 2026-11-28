@@ -18,15 +18,15 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping({"/api/events", "/events"})
 @RequiredArgsConstructor
 public class ActivityRegistrationController {
 
     private final ActivityRegistrationService registrationService;
     private final LoggedInUserService loggedInUserService;
 
-    @PostMapping("/programs/{programId}/registrations")
-    @PreAuthorize("hasAuthority('Register Event')")
+    @PostMapping({"/programs/{programId}/registrations", "/programs/{programId}/register"})
+    @PreAuthorize("hasAuthority('Register Event') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ActivityRegistrationResponse> register(
             @PathVariable Long programId,
             @Valid @RequestBody ActivityRegistrationRequest request,
@@ -37,13 +37,13 @@ public class ActivityRegistrationController {
     }
 
     @GetMapping("/programs/{programId}/registrations")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAuthority('View Events') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<ActivityRegistrationResponse>> getByProgram(@PathVariable Long programId) {
         return ResponseEntity.ok(registrationService.getByProgram(programId));
     }
 
     @GetMapping("/activity-registrations/mine")
-    @PreAuthorize("hasAuthority('Register Event')")
+    @PreAuthorize("hasAuthority('Register Event') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<ActivityRegistrationResponse>> getMine(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -51,7 +51,7 @@ public class ActivityRegistrationController {
     }
 
     @PutMapping("/activity-registrations/{registrationId}/approve")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ActivityRegistrationResponse> approve(
             @PathVariable Long registrationId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -60,7 +60,7 @@ public class ActivityRegistrationController {
     }
 
     @PutMapping("/activity-registrations/{registrationId}/reject")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Create Event') or hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ActivityRegistrationResponse> reject(
             @PathVariable Long registrationId,
             @RequestBody(required = false) DecisionRequest request,
@@ -73,7 +73,7 @@ public class ActivityRegistrationController {
     }
 
     @PutMapping("/activity-registrations/{registrationId}/cancel")
-    @PreAuthorize("hasAuthority('Register Event')")
+    @PreAuthorize("hasAuthority('Register Event') or hasAnyRole('USER','RESIDENT','OWNER','TENANT','MEMBER','ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ActivityRegistrationResponse> cancel(
             @PathVariable Long registrationId,
             @AuthenticationPrincipal UserPrincipal principal) {

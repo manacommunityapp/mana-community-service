@@ -3,6 +3,7 @@ package com.manacommunity.api.social.repository;
 import com.manacommunity.api.social.entity.GroupExpenseSplit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,9 +17,9 @@ public interface GroupExpenseSplitRepository extends JpaRepository<GroupExpenseS
         SELECT COALESCE(SUM(s.amountOwed), 0)
         FROM GroupExpenseSplit s
         JOIN GroupExpense e ON e.id = s.expenseId
-        WHERE s.memberId = :userId AND e.groupId = :groupId AND s.isSettled = false
+        WHERE s.memberId = :userId AND e.groupId = :groupId AND s.isSettled = false AND e.paidBy <> :userId
     """)
-    BigDecimal sumUnsettledOwedByUser(Long groupId, Long userId);
+    BigDecimal sumUnsettledOwedByUser(@Param("groupId") Long groupId, @Param("userId") Long userId);
 
     @Query("""
         SELECT COALESCE(SUM(s.amountOwed), 0)
@@ -26,5 +27,5 @@ public interface GroupExpenseSplitRepository extends JpaRepository<GroupExpenseS
         JOIN GroupExpense e ON e.id = s.expenseId
         WHERE e.paidBy = :userId AND e.groupId = :groupId AND s.isSettled = false AND s.memberId <> :userId
     """)
-    BigDecimal sumUnsettledOwedToUser(Long groupId, Long userId);
+    BigDecimal sumUnsettledOwedToUser(@Param("groupId") Long groupId, @Param("userId") Long userId);
 }

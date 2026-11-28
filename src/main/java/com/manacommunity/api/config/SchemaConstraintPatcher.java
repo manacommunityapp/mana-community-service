@@ -155,8 +155,9 @@ public class SchemaConstraintPatcher {
                             ALTER TABLE manacommunity.cfbos_expense
                                 ADD COLUMN IF NOT EXISTS community_id BIGINT,
                                 ADD COLUMN IF NOT EXISTS mana_vendor_id BIGINT;
-                            UPDATE manacommunity.cfbos_expense SET community_id = 1 WHERE community_id IS NULL;
-                            ALTER TABLE manacommunity.cfbos_expense ALTER COLUMN community_id SET NOT NULL;
+                            IF NOT EXISTS (SELECT 1 FROM manacommunity.cfbos_expense WHERE community_id IS NULL) THEN
+                              ALTER TABLE manacommunity.cfbos_expense ALTER COLUMN community_id SET NOT NULL;
+                            END IF;
                             CREATE INDEX IF NOT EXISTS idx_cfbos_expense_community_id ON manacommunity.cfbos_expense (community_id);
                           END IF;
                           IF to_regclass('manacommunity.cfbos_invoice') IS NOT NULL THEN
@@ -167,7 +168,6 @@ public class SchemaConstraintPatcher {
                                 ADD COLUMN IF NOT EXISTS source_module VARCHAR(30),
                                 ADD COLUMN IF NOT EXISTS source_reference_type VARCHAR(50),
                                 ADD COLUMN IF NOT EXISTS source_reference_id BIGINT;
-                            UPDATE manacommunity.cfbos_invoice SET community_id = 1 WHERE community_id IS NULL;
                             CREATE INDEX IF NOT EXISTS idx_cfbos_invoice_community_id ON manacommunity.cfbos_invoice (community_id);
                             CREATE INDEX IF NOT EXISTS idx_cfbos_invoice_source ON manacommunity.cfbos_invoice (source_module, source_reference_type, source_reference_id);
                           END IF;
@@ -2845,7 +2845,7 @@ ALTER TABLE IF EXISTS manacommunity.hr_offers
 ALTER TABLE IF EXISTS manacommunity.hr_applicants
     ADD COLUMN IF NOT EXISTS current_employer VARCHAR(200),
     ADD COLUMN IF NOT EXISTS experience_years INT,
-    ADD COLUMN IF NOT EXISTS expected_salary DOUBLE PRECISION;
+    ADD COLUMN IF NOT EXISTS expected_salary NUMERIC(14,2);
 
 -- 13. MW Duty Handovers
 ALTER TABLE IF EXISTS manacommunity.mw_duty_handovers
@@ -3409,10 +3409,14 @@ BEGIN
     END IF;
   END IF;
 
-  -- 5. hr_offers: offered_salary
+  -- 5. hr_offers: offered_salary (keep NUMERIC(14,2) aligned with BigDecimal entity field)
   IF to_regclass('manacommunity.hr_offers') IS NOT NULL THEN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='manacommunity' AND table_name='hr_offers' AND column_name='offered_salary') THEN
-      EXECUTE 'ALTER TABLE manacommunity.hr_offers ALTER COLUMN offered_salary TYPE DOUBLE PRECISION USING offered_salary::DOUBLE PRECISION';
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='manacommunity' AND table_name='hr_offers'
+          AND column_name='offered_salary' AND data_type IN ('double precision', 'real')
+    ) THEN
+      EXECUTE 'ALTER TABLE manacommunity.hr_offers ALTER COLUMN offered_salary TYPE NUMERIC(14,2) USING ROUND(offered_salary::numeric, 2)';
     END IF;
   END IF;
 
@@ -3818,6 +3822,17 @@ END $$;
 
                         ALTER TABLE IF EXISTS manacommunity.app_user_aud
                             ADD COLUMN IF NOT EXISTS organization_id BIGINT;
+
+                        ALTER TABLE IF EXISTS manacommunity.finance_invoice_aud
+                            ADD COLUMN IF NOT EXISTS community_id BIGINT,
+                            ADD COLUMN IF NOT EXISTS payment_recorded_at TIMESTAMP;
+
+                        ALTER TABLE IF EXISTS manacommunity.health_data_access_log
+                            ALTER COLUMN ip_address TYPE VARCHAR(50);
+
+                        ALTER TABLE IF EXISTS manacommunity.user_consent_record
+                            ALTER COLUMN ip_address TYPE VARCHAR(50),
+                            ALTER COLUMN purpose TYPE VARCHAR(50);
 
                         CREATE TABLE IF NOT EXISTS manacommunity.consent_records_aud (
                             id                   BIGINT    NOT NULL,

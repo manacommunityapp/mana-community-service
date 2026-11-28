@@ -90,6 +90,24 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.getServiceZones(user(p)));
     }
 
+    @GetMapping("/trips/{id}/receipt")
+    public ResponseEntity<MobilityReceiptDto> getTripReceipt(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getTripReceipt(user(p), id));
+    }
+
+    @PostMapping("/trips/{id}/payment-confirm")
+    public ResponseEntity<MobilityTripDto> confirmTripPayment(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String orderId = body != null ? body.get("paymentOrderId") : null;
+        String payRef = body != null ? body.get("paymentRef") : null;
+        String gateway = body != null ? body.get("gateway") : "CASHFREE";
+        return ResponseEntity.ok(mobilityService.confirmTripPayment(user(p), id, orderId, payRef, gateway));
+    }
+
     @GetMapping("/trips/{id}/location")
     public ResponseEntity<Map<String, Object>> getDriverLocation(
             @AuthenticationPrincipal UserPrincipal p,
@@ -133,6 +151,13 @@ public class MobilityController {
             @AuthenticationPrincipal UserPrincipal p,
             @Valid @RequestBody UpdateDriverLocationRequest req) {
         return ResponseEntity.ok(mobilityService.updateDriverLocation(user(p), req.getLatitude(), req.getLongitude()));
+    }
+
+    @PatchMapping("/driver/service-zone")
+    public ResponseEntity<MobilityDriverDto> assignDriverServiceZone(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestBody Map<String, Long> body) {
+        return ResponseEntity.ok(mobilityService.assignDriverServiceZone(user(p), body.get("serviceZoneId")));
     }
 
     @GetMapping("/driver/documents")
@@ -244,10 +269,17 @@ public class MobilityController {
             @RequestParam(defaultValue = "30") int timeWindowMinutes,
             @RequestParam(defaultValue = "1") int seats,
             @RequestParam(defaultValue = "0") int luggageCount,
+            @RequestParam(required = false) Double pickupLat,
+            @RequestParam(required = false) Double pickupLng,
+            @RequestParam(required = false) Double destLat,
+            @RequestParam(required = false) Double destLng,
+            @RequestParam(required = false) Double maxDetourKm,
+            @RequestParam(defaultValue = "false") boolean allowCrossCommunity,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(mobilityService.searchJourneyOffers(user(p), journeyType, hubCode, direction, area,
-                travelAt, timeWindowMinutes, seats, luggageCount, page, size));
+                travelAt, timeWindowMinutes, seats, luggageCount,
+                pickupLat, pickupLng, destLat, destLng, maxDetourKm, allowCrossCommunity, page, size));
     }
 
     @PostMapping("/journeys/offers")
@@ -388,6 +420,24 @@ public class MobilityController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/journeys/requests/{id}/guardian-consent")
+    public ResponseEntity<AirportRideRequestDto> approveRequestGuardianConsent(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Boolean> body) {
+        boolean approved = body == null || !Boolean.FALSE.equals(body.get("approved"));
+        return ResponseEntity.ok(mobilityService.approveRequestGuardianConsent(user(p), id, approved));
+    }
+
+    @PostMapping("/journeys/bookings/{bookingId}/guardian-consent")
+    public ResponseEntity<JourneyBookingDto> approveBookingGuardianConsent(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, Boolean> body) {
+        boolean approved = body == null || !Boolean.FALSE.equals(body.get("approved"));
+        return ResponseEntity.ok(mobilityService.approveBookingGuardianConsent(user(p), bookingId, approved));
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(
@@ -513,6 +563,62 @@ public class MobilityController {
             @PathVariable Long driverId) {
         mobilityService.reinstateDriver(user(p), driverId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/ops/service-zones")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<List<MobilityServiceZoneDto>> getAllServiceZonesOps(@AuthenticationPrincipal UserPrincipal p) {
+        return ResponseEntity.ok(mobilityService.getAllServiceZonesOps(user(p)));
+    }
+
+    @PostMapping("/ops/service-zones")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<MobilityServiceZoneDto> createServiceZone(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody ServiceZoneRequest req) {
+        return ResponseEntity.ok(mobilityService.createServiceZone(user(p), req));
+    }
+
+    @PutMapping("/ops/service-zones/{zoneId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<MobilityServiceZoneDto> updateServiceZone(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long zoneId,
+            @Valid @RequestBody ServiceZoneRequest req) {
+        return ResponseEntity.ok(mobilityService.updateServiceZone(user(p), zoneId, req));
+    }
+
+    @PatchMapping("/ops/service-zones/{zoneId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<MobilityServiceZoneDto> updateServiceZoneStatus(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long zoneId,
+            @RequestBody Map<String, Boolean> body) {
+        boolean active = body != null && Boolean.TRUE.equals(body.get("active"));
+        return ResponseEntity.ok(mobilityService.updateServiceZoneStatus(user(p), zoneId, active));
+    }
+
+    @PostMapping("/ops/drivers/{driverId}/service-zone")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<MobilityDriverDto> opsAssignDriverServiceZone(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long driverId,
+            @RequestBody Map<String, Long> body) {
+        return ResponseEntity.ok(mobilityService.opsAssignDriverServiceZone(user(p), driverId, body.get("serviceZoneId")));
+    }
+
+    @GetMapping("/ops/analytics")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<MobilityOpsAnalyticsDto> getOpsAnalytics(@AuthenticationPrincipal UserPrincipal p) {
+        return ResponseEntity.ok(mobilityService.getOpsAnalytics(user(p)));
+    }
+
+    @PostMapping("/ops/drivers/{driverId}/settle")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<Map<String, Object>> settleDriverEarnings(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long driverId) {
+        return ResponseEntity.ok(Map.of("settledAmount", mobilityService.settleDriverEarnings(user(p), driverId)));
     }
 
     // ── Util ───────────────────────────────────────────────────────────────

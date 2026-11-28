@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -15,9 +16,9 @@ public class HrPayrollRun {
     @Column(name = "payroll_month", nullable = false) private Integer payrollMonth;
     @Column(name = "payroll_year", nullable = false) private Integer payrollYear;
     @Column(name = "status", nullable = false, length = 20) @Builder.Default private String status = "DRAFT";
-    @Column(name = "total_gross") @Builder.Default private Double totalGross = 0.0;
-    @Column(name = "total_deductions") @Builder.Default private Double totalDeductions = 0.0;
-    @Column(name = "total_net") @Builder.Default private Double totalNet = 0.0;
+    @Column(name = "total_gross", precision = 14, scale = 2) @Builder.Default private BigDecimal totalGross = BigDecimal.ZERO;
+    @Column(name = "total_deductions", precision = 14, scale = 2) @Builder.Default private BigDecimal totalDeductions = BigDecimal.ZERO;
+    @Column(name = "total_net", precision = 14, scale = 2) @Builder.Default private BigDecimal totalNet = BigDecimal.ZERO;
     @Column(name = "employee_count") @Builder.Default private Integer employeeCount = 0;
     @Column(name = "processed_by") private Long processedBy;
     @Column(name = "processed_at") private LocalDateTime processedAt;

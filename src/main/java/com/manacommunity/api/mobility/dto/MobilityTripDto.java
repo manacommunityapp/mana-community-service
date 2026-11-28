@@ -28,6 +28,16 @@ public class MobilityTripDto {
     private int etaMinutes;
 
     private String paymentMethod;
+    private String paymentStatus;
+    private String paymentOrderId;
+    private String paymentRef;
+    private String gateway;
+    private String refundStatus;
+    private BigDecimal refundAmount;
+    private String receiptNumber;
+    private Instant paidAt;
+    private Long serviceZoneId;
+    private String serviceZoneName;
     private Short passengerRating;
     private Instant requestedAt;
     private Instant completedAt;

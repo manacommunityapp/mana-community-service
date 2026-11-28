@@ -1,5 +1,5 @@
 -- Tournament sponsors
-CREATE TABLE tournament_sponsor (
+CREATE TABLE IF NOT EXISTS tournament_sponsor (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     tournament_id   BIGINT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE tournament_sponsor (
 );
 
 -- Tournament merchandise
-CREATE TABLE tournament_merchandise (
+CREATE TABLE IF NOT EXISTS tournament_merchandise (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     tournament_id   BIGINT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE tournament_merchandise (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE merchandise_order (
+CREATE TABLE IF NOT EXISTS merchandise_order (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     merchandise_id  BIGINT NOT NULL REFERENCES tournament_merchandise(id),
@@ -40,7 +40,7 @@ CREATE TABLE merchandise_order (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_ts_tournament ON tournament_sponsor(tournament_id, status);
-CREATE INDEX idx_tm_tournament ON tournament_merchandise(tournament_id, is_available);
-CREATE INDEX idx_mo_user       ON merchandise_order(user_id);
-CREATE INDEX idx_mo_merch      ON merchandise_order(merchandise_id);
+CREATE INDEX IF NOT EXISTS idx_ts_tournament ON tournament_sponsor(tournament_id, status);
+CREATE INDEX IF NOT EXISTS idx_tm_tournament ON tournament_merchandise(tournament_id, is_available);
+CREATE INDEX IF NOT EXISTS idx_mo_user       ON merchandise_order(user_id);
+CREATE INDEX IF NOT EXISTS idx_mo_merch      ON merchandise_order(merchandise_id);

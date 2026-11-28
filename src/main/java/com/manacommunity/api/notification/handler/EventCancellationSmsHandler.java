@@ -5,10 +5,12 @@ import com.manacommunity.api.notification.enums.MessageType;
 import com.manacommunity.api.notification.event.EventCancelledEvent;
 import com.manacommunity.api.notification.event.EventReminderEvent;
 import com.manacommunity.api.notification.service.SmsService;
+import com.manacommunity.api.notification.sqs.NotificationEventsSqsHandler;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -24,6 +26,9 @@ public class EventCancellationSmsHandler {
     private final SmsService smsService;
     private final AppUserRepository userRepository;
 
+    @Autowired(required = false)
+    private NotificationEventsSqsHandler notificationSqs;
+
     @Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onEventCancelled(EventCancelledEvent event) {
@@ -31,7 +36,7 @@ public class EventCancellationSmsHandler {
             try {
                 userRepository.findById(userId).ifPresent(user -> {
                     if (user.getPhone() == null) return;
-                    smsService.send(SendSmsRequest.builder()
+                    send("EVENT_CANCELLED", SendSmsRequest.builder()
                             .phoneNumber(user.getPhone())
                             .templateCode("EVENT_CANCELLED")
                             .messageType(MessageType.EVENT)
@@ -55,7 +60,7 @@ public class EventCancellationSmsHandler {
         try {
             String templateCode = "1h".equals(event.getReminderType())
                     ? "EVENT_REMINDER_1H" : "EVENT_REMINDER_24H";
-            smsService.send(SendSmsRequest.builder()
+            send("EVENT_REMINDER", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode(templateCode)
                     .messageType(MessageType.REMINDER)
@@ -67,6 +72,14 @@ public class EventCancellationSmsHandler {
                     .build());
         } catch (Exception ex) {
             log.warn("EventReminder SMS failed for userId={}: {}", event.getUserId(), ex.getMessage());
+        }
+    }
+
+    private void send(String eventType, SendSmsRequest req) {
+        if (notificationSqs != null) {
+            notificationSqs.dispatch(eventType, req);
+        } else {
+            smsService.send(req);
         }
     }
 }

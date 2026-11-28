@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -16,8 +17,8 @@ public class HrExpenseClaim {
     private HrEmployee employee;
     @Column(name = "claim_title", nullable = false, length = 200) private String claimTitle;
     @Column(name = "claim_type", nullable = false, length = 30) private String claimType;
-    @Column(name = "total_amount", nullable = false) @Builder.Default private Double totalAmount = 0.0;
-    @Column(name = "approved_amount") private Double approvedAmount;
+    @Column(name = "total_amount", nullable = false, precision = 14, scale = 2) @Builder.Default private BigDecimal totalAmount = BigDecimal.ZERO;
+    @Column(name = "approved_amount", precision = 14, scale = 2) private BigDecimal approvedAmount;
     @Column(name = "claim_date", nullable = false) private LocalDate claimDate;
     @Column(name = "description", columnDefinition = "TEXT") private String description;
     @Column(name = "status", nullable = false, length = 20) @Builder.Default private String status = "DRAFT";

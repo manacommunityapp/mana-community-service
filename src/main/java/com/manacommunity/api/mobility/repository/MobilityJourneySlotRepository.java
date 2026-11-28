@@ -8,4 +8,5 @@ public interface MobilityJourneySlotRepository extends JpaRepository<MobilityJou
     List<MobilityJourneySlot> findByCommunityIdAndStatusAndJourneyTypeAndHubCodeOrderByDepartureTimeAsc(
             Long communityId, String status, String journeyType, String hubCode);
     List<MobilityJourneySlot> findByCommunityIdAndStatusOrderByDepartureTimeAsc(Long communityId, String status);
+    List<MobilityJourneySlot> findByStatusAndAutoGenerateTrue(String status);
 }

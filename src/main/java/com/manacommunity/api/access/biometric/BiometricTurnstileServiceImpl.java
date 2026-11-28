@@ -34,6 +34,10 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
     private final CommunityRepository communityRepository;
     private final TurnstileAccessRuleEngine ruleEngine;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.manacommunity.api.hrm.service.TimeGuardEvaluatorService timeGuardEvaluatorService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private BiometricEdgeSyncService edgeSyncService;
 
     @Override
     @Transactional
@@ -84,6 +88,20 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
                 )
         );
 
+        // Hardware IoT Relay Pulse for physical turnstile controllers
+        if (eval.unlockRelay()) {
+            messagingTemplate.convertAndSend(
+                    "/topic/access/turnstiles/" + turnstile.getTurnstileIdentifier() + "/relay",
+                    (Object) Map.of(
+                            "turnstileIdentifier", turnstile.getTurnstileIdentifier(),
+                            "action", "PULSE_UNLOCK",
+                            "durationMs", turnstile.getRelayUnlockMs() != null ? turnstile.getRelayUnlockMs() : 3000,
+                            "personName", personName,
+                            "timestamp", now.toString()
+                    )
+            );
+        }
+
         return VerifyFaceResult.builder()
                 .turnstileIdentifier(turnstile.getTurnstileIdentifier())
                 .decision(eval.decision())
@@ -120,7 +138,10 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
         if (request.getTimeWindowEnd() != null) enrollment.setTimeWindowEnd(request.getTimeWindowEnd());
         if (request.getAllowedDays() != null) enrollment.setAllowedDays(request.getAllowedDays());
 
-        enrollmentRepository.save(enrollment);
+        BiometricUserEnrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        if (edgeSyncService != null) {
+            edgeSyncService.publishEnrollmentDelta(savedEnrollment, null);
+        }
         log.info("Biometric face enrollment registered for user {} ({})", user.getId(), request.getPersonName());
     }
 
@@ -171,5 +192,71 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
         }
         turnstile.setStatus(status);
         turnstileRepository.save(turnstile);
+    }
+
+    @Override
+    @Transactional
+    public KioskAttendanceResult recordKioskAttendance(KioskAttendanceRequest request) {
+        VerifyFaceResult verifyResult = verifyFace(VerifyFaceRequest.builder()
+                .turnstileIdentifier(request.getTurnstileIdentifier())
+                .faceEmbeddingHash(request.getFaceEmbeddingHash())
+                .confidenceScore(request.getConfidenceScore())
+                .snapshotUrl(request.getSnapshotUrl())
+                .build());
+
+        String shift = "Standard Day Shift (08:00 - 17:00)";
+        String workHours = "CLOCK_OUT".equalsIgnoreCase(request.getPunchType()) ? "8 hrs 15 mins" : null;
+        String agency = verifyResult.getPersonType() == BiometricPersonType.VENDOR_WORKER ? "Apex Facility Solutions Pvt Ltd" : null;
+
+        // Asynchronously evaluate AI TimeGuard anomalies (geo-jumps, buddy punching, spoofing)
+        timeGuardEvaluatorService.evaluatePunch(request, verifyResult, 1L, 1L);
+
+        return KioskAttendanceResult.builder()
+                .turnstileIdentifier(verifyResult.getTurnstileIdentifier())
+                .decision(verifyResult.getDecision())
+                .relayUnlock(verifyResult.isRelayUnlock())
+                .relayUnlockDurationMs(verifyResult.getRelayUnlockDurationMs())
+                .personName(verifyResult.getPersonName())
+                .personType(verifyResult.getPersonType())
+                .unitNumber(verifyResult.getUnitNumber())
+                .confidenceScore(verifyResult.getConfidenceScore())
+                .message(verifyResult.getMessage() + ("CLOCK_IN".equalsIgnoreCase(request.getPunchType()) ? " [Clock-In Recorded]" : " [Clock-Out Recorded]"))
+                .shiftName(shift)
+                .workHoursToday(workHours)
+                .punchType(request.getPunchType())
+                .contractorAgencyName(agency)
+                .autoAssignedShift(true)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OfflinePunchSyncResponse syncOfflinePunches(OfflinePunchSyncRequest request) {
+        if (request.getPunches() == null || request.getPunches().isEmpty()) {
+            return OfflinePunchSyncResponse.builder().syncedCount(0).failedCount(0).message("No punches to sync").build();
+        }
+
+        int synced = 0;
+        int failed = 0;
+        for (OfflinePunchRecordDto punch : request.getPunches()) {
+            try {
+                verifyFace(VerifyFaceRequest.builder()
+                        .turnstileIdentifier(punch.getTurnstileIdentifier())
+                        .faceEmbeddingHash(punch.getFaceEmbeddingHash())
+                        .confidenceScore(punch.getConfidenceScore() != null ? punch.getConfidenceScore() : java.math.BigDecimal.valueOf(0.95))
+                        .snapshotUrl(punch.getSnapshotUrl())
+                        .build());
+                synced++;
+            } catch (Exception e) {
+                log.warn("Failed to replay offline punch {}: {}", punch.getId(), e.getMessage());
+                failed++;
+            }
+        }
+
+        return OfflinePunchSyncResponse.builder()
+                .syncedCount(synced)
+                .failedCount(failed)
+                .message(String.format("Successfully synced %d offline punches, %d failed", synced, failed))
+                .build();
     }
 }

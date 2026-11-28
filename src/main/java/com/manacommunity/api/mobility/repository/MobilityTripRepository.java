@@ -17,6 +17,12 @@ public interface MobilityTripRepository extends JpaRepository<MobilityTrip, Long
 
     Page<MobilityTrip> findByPassengerIdOrderByRequestedAtDesc(Long passengerId, Pageable pageable);
 
+    List<MobilityTrip> findByDriverIdOrderByRequestedAtDesc(Long driverId);
+
+    List<MobilityTrip> findByDriverIdAndPaymentStatusAndSettledFalse(Long driverId, String paymentStatus);
+
+    List<MobilityTrip> findByCommunityId(Long communityId);
+
     @Query("SELECT t FROM MobilityTrip t WHERE t.driver.id = :driverId AND t.status IN :statuses")
     Optional<MobilityTrip> findActiveByDriver(Long driverId, List<MobilityTripStatus> statuses);
 

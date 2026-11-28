@@ -2,146 +2,273 @@ package com.manacommunity.api.social.controller;
 
 import com.manacommunity.api.social.entity.*;
 import com.manacommunity.api.social.service.SocialGroupService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import com.manacommunity.api.user.security.UserPrincipal;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
-@RequestMapping("/api/social")
+@RequestMapping({"/api/social", "/api/v1/social", "/api/social-groups", "/api/v1/social-groups"})
 @RequiredArgsConstructor
 public class SocialGroupController {
 
     private final SocialGroupService service;
 
-    @GetMapping("/groups")
-    public ResponseEntity<Page<SocialGroup>> listGroups(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Long communityId = principal.getCommunityId();
-        return ResponseEntity.ok(service.getGroupsByCommunity(communityId, type,
-                PageRequest.of(page, size, Sort.by("createdAt").descending())));
+    private Long resolveUserId(UserPrincipal principal, Long paramUserId, Map<String, Object> body, String bodyKey) {
+        if (paramUserId != null && paramUserId > 0) {
+            return paramUserId;
+        }
+        if (body != null && bodyKey != null && body.get(bodyKey) != null) {
+            return Long.valueOf(body.get(bodyKey).toString());
+        }
+        if (principal != null && principal.getId() != null) {
+            return principal.getId();
+        }
+        throw new IllegalArgumentException("Authenticated user ID is required");
     }
 
-    @PostMapping("/groups")
-    public ResponseEntity<SocialGroup> createGroup(@RequestBody Map<String, Object> body) {
-        Long communityId = Long.valueOf(body.get("communityId").toString());
-        Long createdBy = Long.valueOf(body.get("createdBy").toString());
-        String name = (String) body.get("name");
-        String description = (String) body.getOrDefault("description", null);
-        String groupType = (String) body.getOrDefault("groupType", "INTEREST");
-        boolean isPrivate = Boolean.parseBoolean(body.getOrDefault("isPrivate", "false").toString());
-        int maxMembers = Integer.parseInt(body.getOrDefault("maxMembers", "50").toString());
-        return ResponseEntity.ok(service.createGroup(communityId, createdBy, name, description,
+    private Long resolveCommunityId(UserPrincipal principal, Long paramCommunityId, Map<String, Object> body) {
+        if (paramCommunityId != null && paramCommunityId > 0) {
+            return paramCommunityId;
+        }
+        if (body != null && body.get("communityId") != null) {
+            long cid = Long.parseLong(body.get("communityId").toString());
+            if (cid > 0) return cid;
+        }
+        if (principal != null && principal.getCommunityId() != null && principal.getCommunityId() > 0) {
+            return principal.getCommunityId();
+        }
+        return 1L;
+    }
+
+    private OffsetDateTime parseDateTime(Object raw) {
+        if (raw == null) return null;
+        String str = raw.toString().trim();
+        if (str.isEmpty()) return null;
+        try {
+            return OffsetDateTime.parse(str);
+        } catch (Exception ignored) {
+        }
+        try {
+            return Instant.parse(str).atOffset(ZoneOffset.UTC);
+        } catch (Exception ignored) {
+        }
+        return LocalDateTime.parse(str).atOffset(ZoneOffset.UTC);
+    }
+
+    @GetMapping({"", "/groups"})
+    public ResponseEntity<List<SocialGroup>> listGroups(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Long resolvedCommunityId = resolveCommunityId(principal, communityId, null);
+        Long currentUserId = principal != null ? principal.getId() : null;
+        Page<SocialGroup> result = service.getGroupsByCommunity(
+                resolvedCommunityId,
+                type,
+                PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100), Sort.by("createdAt").descending()),
+                currentUserId);
+        return ResponseEntity.ok(result.getContent());
+    }
+
+    @PostMapping({"", "/groups"})
+    public ResponseEntity<SocialGroup> createGroup(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
+            @RequestBody Map<String, Object> body) {
+        Long resolvedCommunityId = resolveCommunityId(principal, communityId, body);
+        Long createdBy = resolveUserId(principal, null, body, "createdBy");
+        String name = body.get("name") != null ? body.get("name").toString().trim() : "";
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("Group name is required");
+        }
+        String description = body.get("description") != null ? body.get("description").toString() : null;
+        String groupType = body.get("groupType") != null ? body.get("groupType").toString() : "INTEREST";
+        boolean isPrivate = body.get("isPrivate") != null && Boolean.parseBoolean(body.get("isPrivate").toString());
+        int maxMembers = body.get("maxMembers") != null ? Integer.parseInt(body.get("maxMembers").toString()) : 50;
+        return ResponseEntity.ok(service.createGroup(resolvedCommunityId, createdBy, name, description,
                 groupType, isPrivate, maxMembers));
     }
 
-    @GetMapping("/groups/my")
-    public ResponseEntity<List<SocialGroup>> myGroups(@RequestParam Long userId) {
-        return ResponseEntity.ok(service.getMyGroups(userId));
+    @GetMapping({"/my", "/groups/my"})
+    public ResponseEntity<List<SocialGroup>> myGroups(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId) {
+        Long resolvedUserId = resolveUserId(principal, userId, null, null);
+        return ResponseEntity.ok(service.getMyGroups(resolvedUserId));
     }
 
-    @PostMapping("/groups/{id}/join")
-    public ResponseEntity<Map<String, Boolean>> join(@PathVariable Long id, @RequestParam Long userId) {
-        service.joinGroup(id, userId);
+    @GetMapping({"/{id}", "/groups/{id}"})
+    public ResponseEntity<SocialGroup> getGroup(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long currentUserId = principal != null ? principal.getId() : null;
+        return ResponseEntity.ok(service.getGroupById(id, currentUserId));
+    }
+
+    @PostMapping({"/{id}/join", "/groups/{id}/join"})
+    public ResponseEntity<Map<String, Boolean>> join(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Long resolvedUserId = resolveUserId(principal, userId, body, "userId");
+        service.joinGroup(id, resolvedUserId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @PostMapping("/groups/{id}/leave")
-    public ResponseEntity<Map<String, Boolean>> leave(@PathVariable Long id, @RequestParam Long userId) {
-        service.leaveGroup(id, userId);
+    @PostMapping({"/{id}/leave", "/groups/{id}/leave"})
+    public ResponseEntity<Map<String, Boolean>> leave(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Long resolvedUserId = resolveUserId(principal, userId, body, "userId");
+        service.leaveGroup(id, resolvedUserId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @PostMapping("/groups/{id}/invite")
-    public ResponseEntity<Map<String, Boolean>> invite(@PathVariable Long id,
-            @RequestParam Long adminId, @RequestParam Long inviteeId) {
-        service.inviteMember(id, adminId, inviteeId);
+    @PostMapping({"/{id}/invite", "/groups/{id}/invite"})
+    public ResponseEntity<Map<String, Boolean>> invite(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long adminId,
+            @RequestParam(required = false) Long inviteeId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Long resolvedAdminId = resolveUserId(principal, adminId, body, "adminId");
+        Long resolvedInviteeId = inviteeId != null
+                ? inviteeId
+                : (body != null && body.get("inviteeId") != null ? Long.valueOf(body.get("inviteeId").toString()) : null);
+        if (resolvedInviteeId == null) {
+            throw new IllegalArgumentException("inviteeId is required");
+        }
+        service.inviteMember(id, resolvedAdminId, resolvedInviteeId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @GetMapping("/groups/{id}/messages")
+    @GetMapping({"/{id}/messages", "/groups/{id}/messages"})
     public ResponseEntity<Page<GroupMessage>> messages(
             @PathVariable Long id,
-            @RequestParam Long requesterId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long requesterId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(service.getMessages(id, requesterId,
-                PageRequest.of(page, size)));
+        Long resolvedRequesterId = requesterId != null
+                ? requesterId
+                : (principal != null ? principal.getId() : null);
+        return ResponseEntity.ok(service.getMessages(id, resolvedRequesterId,
+                PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100))));
     }
 
-    @PostMapping("/groups/{id}/messages")
-    public ResponseEntity<GroupMessage> sendMessage(@PathVariable Long id,
+    @PostMapping({"/{id}/messages", "/groups/{id}/messages"})
+    public ResponseEntity<GroupMessage> sendMessage(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, Object> body) {
-        Long senderId = Long.valueOf(body.get("senderId").toString());
-        String content = (String) body.get("content");
-        String type = (String) body.getOrDefault("type", "TEXT");
+        Long senderId = resolveUserId(principal, null, body, "senderId");
+        String content = body.get("content") != null ? body.get("content").toString() : "";
+        String type = body.get("type") != null ? body.get("type").toString() : "TEXT";
         return ResponseEntity.ok(service.sendMessage(id, senderId, content, type));
     }
 
-    @GetMapping("/groups/{id}/events")
-    public ResponseEntity<List<GroupEvent>> upcomingEvents(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getUpcomingEvents(id));
+    @GetMapping({"/{id}/events", "/groups/{id}/events"})
+    public ResponseEntity<List<GroupEvent>> upcomingEvents(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long currentUserId = principal != null ? principal.getId() : null;
+        return ResponseEntity.ok(service.getUpcomingEvents(id, currentUserId));
     }
 
-    @PostMapping("/groups/{id}/events")
-    public ResponseEntity<GroupEvent> createEvent(@PathVariable Long id,
+    @PostMapping({"/{id}/events", "/groups/{id}/events"})
+    public ResponseEntity<GroupEvent> createEvent(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, Object> body) {
-        Long createdBy = Long.valueOf(body.get("createdBy").toString());
-        String title = (String) body.get("title");
-        String description = (String) body.getOrDefault("description", null);
-        OffsetDateTime eventDate = OffsetDateTime.parse(body.get("eventDate").toString());
-        String location = (String) body.getOrDefault("location", null);
-        OffsetDateTime rsvpDeadline = body.containsKey("rsvpDeadline")
-                ? OffsetDateTime.parse(body.get("rsvpDeadline").toString()) : null;
+        Long createdBy = resolveUserId(principal, null, body, "createdBy");
+        String title = body.get("title") != null ? body.get("title").toString() : "";
+        String description = body.get("description") != null ? body.get("description").toString() : null;
+        Object rawDate = body.get("eventDate") != null ? body.get("eventDate") : body.get("scheduledAt");
+        OffsetDateTime eventDate = parseDateTime(rawDate);
+        if (eventDate == null) {
+            throw new IllegalArgumentException("eventDate or scheduledAt is required");
+        }
+        String location = body.get("location") != null ? body.get("location").toString() : null;
+        OffsetDateTime rsvpDeadline = parseDateTime(body.get("rsvpDeadline"));
         return ResponseEntity.ok(service.createGroupEvent(id, createdBy, title, description,
                 eventDate, location, rsvpDeadline));
     }
 
-    @PostMapping("/events/{id}/rsvp")
-    public ResponseEntity<Map<String, Boolean>> rsvp(@PathVariable Long id,
-            @RequestParam Long userId, @RequestParam String response) {
-        service.rsvpEvent(id, userId, response);
+    @PostMapping({"/events/{id}/rsvp", "/{groupId}/events/{id}/rsvp", "/groups/{groupId}/events/{id}/rsvp"})
+    public ResponseEntity<Map<String, Boolean>> rsvp(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String response,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Long resolvedUserId = resolveUserId(principal, userId, body, "userId");
+        String resolvedResponse = response;
+        if ((resolvedResponse == null || resolvedResponse.isBlank()) && body != null) {
+            Object statusObj = body.get("status") != null ? body.get("status") : body.get("response");
+            if (statusObj != null) resolvedResponse = statusObj.toString();
+        }
+        if (resolvedResponse == null || resolvedResponse.isBlank()) {
+            throw new IllegalArgumentException("RSVP response/status is required");
+        }
+        service.rsvpEvent(id, resolvedUserId, resolvedResponse);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @GetMapping("/groups/{id}/expenses")
-    public ResponseEntity<List<GroupExpense>> expenses(@PathVariable Long id) {
-        return ResponseEntity.ok(service.listExpenses(id));
+    @GetMapping({"/{id}/expenses", "/groups/{id}/expenses"})
+    public ResponseEntity<List<GroupExpense>> expenses(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long currentUserId = principal != null ? principal.getId() : null;
+        return ResponseEntity.ok(service.listExpenses(id, currentUserId));
     }
 
-    @PostMapping("/groups/{id}/expenses")
-    public ResponseEntity<GroupExpense> addExpense(@PathVariable Long id,
+    @PostMapping({"/{id}/expenses", "/groups/{id}/expenses"})
+    public ResponseEntity<GroupExpense> addExpense(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, Object> body) {
-        Long paidBy = Long.valueOf(body.get("paidBy").toString());
+        Long paidBy = resolveUserId(principal, null, body, "paidBy");
         BigDecimal amount = new BigDecimal(body.get("amount").toString());
-        String description = (String) body.get("description");
+        String description = body.get("description") != null ? body.get("description").toString() : "";
         return ResponseEntity.ok(service.addExpense(id, paidBy, amount, description));
     }
 
-    @PostMapping("/expenses/{id}/settle")
-    public ResponseEntity<Map<String, Boolean>> settle(@PathVariable Long id,
-            @RequestParam Long memberId) {
-        service.settleExpense(id, memberId);
+    @PostMapping({"/expenses/{id}/settle", "/{groupId}/expenses/{id}/settle", "/groups/{groupId}/expenses/{id}/settle"})
+    public ResponseEntity<Map<String, Boolean>> settle(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long memberId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Long resolvedMemberId = resolveUserId(principal, memberId, body, "memberId");
+        service.settleExpense(id, resolvedMemberId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @GetMapping("/groups/{id}/balance")
-    public ResponseEntity<Map<String, Object>> balance(@PathVariable Long id,
-            @RequestParam Long userId) {
-        BigDecimal bal = service.getMyBalance(id, userId);
-        return ResponseEntity.ok(Map.of("groupId", id, "userId", userId, "balance", bal));
+    @GetMapping({"/{id}/balance", "/groups/{id}/balance"})
+    public ResponseEntity<Map<String, Object>> balance(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId) {
+        Long resolvedUserId = resolveUserId(principal, userId, null, null);
+        BigDecimal bal = service.getMyBalance(id, resolvedUserId);
+        return ResponseEntity.ok(Map.of("groupId", id, "userId", resolvedUserId, "balance", bal));
     }
 }

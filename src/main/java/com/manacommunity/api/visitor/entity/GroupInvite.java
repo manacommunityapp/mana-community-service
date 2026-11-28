@@ -52,4 +52,14 @@ public class GroupInvite extends BaseAuditEntity {
     @OneToMany(mappedBy = "groupInvite", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<GroupGuest> guests = new ArrayList<>();
+
+    @com.fasterxml.jackson.annotation.JsonProperty("totalGuests")
+    public int getTotalGuests() {
+        return guests != null ? guests.size() : 0;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("checkedIn")
+    public int getCheckedInCount() {
+        return guests != null ? (int) guests.stream().filter(g -> Boolean.TRUE.equals(g.getIsCheckedIn())).count() : 0;
+    }
 }
