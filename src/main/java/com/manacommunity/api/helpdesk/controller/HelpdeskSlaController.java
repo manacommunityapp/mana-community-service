@@ -11,6 +11,7 @@ import com.manacommunity.api.helpdesk.repository.TowerDistanceRepository;
 import com.manacommunity.api.helpdesk.service.DuplicateClusteringService;
 import com.manacommunity.api.helpdesk.service.SlaEscalationService;
 import com.manacommunity.api.helpdesk.service.TechnicianDispatchService;
+import com.manacommunity.api.rbac.service.CrossSocietyTenantGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,11 +31,13 @@ public class HelpdeskSlaController {
     private final EscalationRuleRepository ruleRepository;
     private final TechnicianRepository technicianRepository;
     private final TowerDistanceRepository distanceRepository;
+    private final CrossSocietyTenantGuard tenantGuard;
 
     // === SLA Ticket Lifecycle ===
 
     @PostMapping("/tickets")
     public ResponseEntity<HelpdeskTicket> createTicketWithSla(@RequestBody HelpdeskTicket ticket) {
+        tenantGuard.assertMatchesActiveTenant(ticket.getCommunityId());
         HelpdeskTicket created = slaService.createTicket(ticket);
         clusteringService.detectAndCluster(created);
         return ResponseEntity.ok(created);
@@ -42,13 +45,17 @@ public class HelpdeskSlaController {
 
     @GetMapping("/tickets")
     public ResponseEntity<List<HelpdeskTicket>> getTickets(@RequestParam Long communityId) {
+        tenantGuard.assertMatchesActiveTenant(communityId);
         return ResponseEntity.ok(ticketRepository.findByCommunityId(communityId));
     }
 
     @GetMapping("/tickets/{id}")
     public ResponseEntity<HelpdeskTicket> getTicket(@PathVariable Long id) {
         return ticketRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(ticket -> {
+                    tenantGuard.assertMatchesActiveTenant(ticket.getCommunityId());
+                    return ResponseEntity.ok(ticket);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 

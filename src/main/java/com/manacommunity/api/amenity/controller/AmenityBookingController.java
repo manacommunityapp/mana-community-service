@@ -4,6 +4,7 @@ import com.manacommunity.api.amenity.entity.*;
 import com.manacommunity.api.amenity.repository.FacilityRepository;
 import com.manacommunity.api.amenity.service.SlotBookingService;
 import com.manacommunity.api.amenity.service.WaitlistPromotionService;
+import com.manacommunity.api.rbac.service.CrossSocietyTenantGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +23,20 @@ public class AmenityBookingController {
     private final FacilityRepository facilityRepository;
     private final SlotBookingService bookingService;
     private final WaitlistPromotionService waitlistService;
+    private final CrossSocietyTenantGuard tenantGuard;
 
     // ── Facilities ──
 
     @GetMapping("/facilities/{communityId}")
     public ResponseEntity<List<Facility>> getFacilities(@PathVariable Long communityId) {
+        tenantGuard.assertMatchesActiveTenant(communityId);
         return ResponseEntity.ok(facilityRepository.findByCommunityIdAndActiveTrue(communityId));
     }
 
     @PostMapping("/facilities")
     @PreAuthorize("hasAuthority('View Admin')")
     public ResponseEntity<Facility> createFacility(@RequestBody Facility facility) {
+        tenantGuard.assertMatchesActiveTenant(facility.getCommunityId());
         return ResponseEntity.ok(facilityRepository.save(facility));
     }
 
