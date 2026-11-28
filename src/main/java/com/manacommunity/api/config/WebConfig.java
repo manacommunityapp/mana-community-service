@@ -1,6 +1,8 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.platform.idempotency.IdempotencyInterceptor;
+import com.manacommunity.api.versioning.AppVersionGatingInterceptor;
+import com.manacommunity.api.versioning.DeprecationHeaderInterceptor;
 import com.manacommunity.platform.ratelimit.RateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final IdempotencyInterceptor idempotencyInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
+    private final DeprecationHeaderInterceptor deprecationHeaderInterceptor;
+    private final AppVersionGatingInterceptor appVersionGatingInterceptor;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -35,5 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(idempotencyInterceptor).addPathPatterns("/api/**");
         registry.addInterceptor(rateLimitInterceptor).addPathPatterns("/api/**");
+        registry.addInterceptor(deprecationHeaderInterceptor).addPathPatterns("/api/**");
+        registry.addInterceptor(appVersionGatingInterceptor).addPathPatterns("/api/**");
     }
 }
