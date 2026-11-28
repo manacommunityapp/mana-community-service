@@ -27,6 +27,7 @@ public class BiometricDtos {
         private BigDecimal confidenceScore;
 
         private String snapshotUrl;
+        private BigDecimal livenessScore;
 
         public String getTurnstileIdentifier() { return turnstileIdentifier; }
         public void setTurnstileIdentifier(String turnstileIdentifier) { this.turnstileIdentifier = turnstileIdentifier; }
@@ -36,6 +37,8 @@ public class BiometricDtos {
         public void setConfidenceScore(BigDecimal confidenceScore) { this.confidenceScore = confidenceScore; }
         public String getSnapshotUrl() { return snapshotUrl; }
         public void setSnapshotUrl(String snapshotUrl) { this.snapshotUrl = snapshotUrl; }
+        public BigDecimal getLivenessScore() { return livenessScore; }
+        public void setLivenessScore(BigDecimal livenessScore) { this.livenessScore = livenessScore; }
     }
 
     @Getter

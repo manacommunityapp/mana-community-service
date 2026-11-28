@@ -38,6 +38,14 @@ public class PrepaidMeterAccount {
     @Builder.Default
     private BigDecimal ratePerUnit = new BigDecimal("8.00");
 
+    @Column(name = "dg_rate_per_unit", nullable = false, precision = 10, scale = 4)
+    @Builder.Default
+    private BigDecimal dgRatePerUnit = new BigDecimal("22.00");
+
+    @Column(name = "active_tariff_source", nullable = false, length = 20)
+    @Builder.Default
+    private String activeTariffSource = "GRID";
+
     @Column(name = "last_deduction_at")
     private Instant lastDeductionAt;
 

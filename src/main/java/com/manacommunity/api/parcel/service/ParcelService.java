@@ -30,6 +30,34 @@ public class ParcelService {
                 .build());
     }
 
+    /**
+     * Records a parcel held at the gate desk (e.g. from Leave-at-Gate handoff)
+     * and generates a 24-hour 6-digit resident pickup OTP immediately.
+     */
+    @Transactional
+    public ParcelRecord receiveParcelWithOtp(
+            Long communityId,
+            String flatNo,
+            Long residentUserId,
+            String courierName,
+            String trackingNumber,
+            Long guardId,
+            String photoUrl) {
+        String otp = String.format("%06d", random.nextInt(1_000_000));
+        return repo.save(ParcelRecord.builder()
+                .communityId(communityId)
+                .flatNo(flatNo)
+                .residentUserId(residentUserId)
+                .courierName(courierName)
+                .trackingNumber(trackingNumber)
+                .receivedByGuardId(guardId)
+                .photoUrl(photoUrl)
+                .status("AWAITING_PICKUP")
+                .collectionOtp(otp)
+                .otpExpiresAt(LocalDateTime.now().plusHours(24))
+                .build());
+    }
+
     @Transactional
     public ParcelRecord generateCollectionOtp(Long parcelId) {
         ParcelRecord parcel = repo.findById(parcelId)

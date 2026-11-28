@@ -31,7 +31,7 @@ public class PerfBenchmarkTestController {
     public ResponseEntity<PerfBenchmarkDashboard> getDashboard() {
         var l = loadRepo.findAll(); var m = monitorRepo.findAll(); var f = frontendRepo.findAll();
         int total = l.size() + m.size() + f.size();
-        if (total == 0) return ResponseEntity.ok(seedDemo());
+        if (total == 0) return seedDemo();
         long pass = l.stream().filter(t -> t.getTestResult() == LoadTestResult.TestResult.PASS).count()
                 + m.stream().filter(t -> t.getTestResult() == SyntheticMonitorTest.TestResult.PASS).count()
                 + f.stream().filter(t -> t.getTestResult() == FrontendPerfTest.TestResult.PASS).count();

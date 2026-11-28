@@ -21,11 +21,31 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DocumentVerificationService {
 
+    public static final long MAX_DOCUMENT_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "jpg", "jpeg", "png");
+
     private final TenantDocumentRepository documentRepository;
     private final TenantRecordRepository tenantRepository;
 
     @Transactional
     public TenantDocument uploadDocument(Long tenantRecordId, DocumentType type, String fileName) {
+        return uploadDocument(tenantRecordId, type, fileName, 256L * 1024);
+    }
+
+    @Transactional
+    public TenantDocument uploadDocument(Long tenantRecordId, DocumentType type, String fileName, long fileSizeBytes) {
+        if (fileName == null || fileName.isBlank()) {
+            throw new IllegalArgumentException("Document filename is required");
+        }
+        if (fileSizeBytes <= 0 || fileSizeBytes > MAX_DOCUMENT_SIZE_BYTES) {
+            throw new IllegalArgumentException("Document file size must be between 1 byte and 10 MB");
+        }
+        int dot = fileName.lastIndexOf('.');
+        String ext = dot >= 0 ? fileName.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            throw new IllegalArgumentException("Unsupported KYC document extension: " + ext);
+        }
+
         TenantDocument doc = TenantDocument.builder()
                 .tenantRecordId(tenantRecordId)
                 .documentType(type)
@@ -39,6 +59,12 @@ public class DocumentVerificationService {
         processOcr(doc);
 
         return doc;
+    }
+
+    /** Builds a tamper-evident Management Committee viewer watermark token for document previews. */
+    public String generateMcPreviewWatermark(Long documentId, String reviewerIdentity) {
+        String viewer = reviewerIdentity == null || reviewerIdentity.isBlank() ? "MC_COMMITTEE" : reviewerIdentity.trim();
+        return "WM::DOC-" + documentId + "::MC-CONFIDENTIAL::VIEWER=" + viewer + "::NO-DOWNLOAD";
     }
 
     @Transactional
@@ -60,8 +86,8 @@ public class DocumentVerificationService {
         doc.setEncryptionKeyRef("AES-256-KMS-" + UUID.randomUUID().toString().substring(0, 8));
         doc.setVerificationStatus(VerificationStatus.PII_ENCRYPTED);
 
-        // Watermarked preview generation
-        doc.setWatermarkedPreviewPath("/previews/wm-" + doc.getId() + ".pdf");
+        // Watermarked preview generation (embeds MC preview watermark token)
+        doc.setWatermarkedPreviewPath("/previews/wm-" + doc.getId() + ".pdf?wm=" + generateMcPreviewWatermark(doc.getId(), "MC_COMMITTEE"));
         doc.setVerificationStatus(VerificationStatus.WATERMARK_GENERATED);
 
         // Set expiry based on document type

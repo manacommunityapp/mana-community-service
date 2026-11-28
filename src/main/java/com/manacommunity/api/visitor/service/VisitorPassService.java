@@ -49,8 +49,16 @@ public class VisitorPassService {
     @Autowired(required = false)
     private com.manacommunity.api.visitor.security.OfflineQrTokenService offlineQrTokenService;
 
+    static final int MAX_OTP_ATTEMPTS = 5;
+
     @Autowired(required = false)
     private com.manacommunity.api.delivery.service.OverstaySlaEngineService overstaySlaEngineService;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.parcel.service.ParcelService parcelService;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.delivery.repository.ResidentDeliveryPreferenceRepository deliveryPreferenceRepo;
 
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
@@ -292,6 +300,22 @@ public class VisitorPassService {
             }
         }
 
+        // 4. Auto-apply resident default "Leave at Gate" delivery preference if enabled
+        if (saved.getPassType() == VisitorPass.PassType.DELIVERY
+                && deliveryPreferenceRepo != null
+                && saved.getCommunity() != null
+                && saved.getFlatNumber() != null) {
+            boolean autoLeaveAtGate = deliveryPreferenceRepo
+                    .findByCommunityIdAndFlatNumber(saved.getCommunity().getId(), saved.getFlatNumber())
+                    .map(pref -> Boolean.TRUE.equals(pref.getDefaultLeaveAtGate()))
+                    .orElse(false);
+            if (autoLeaveAtGate) {
+                VisitorPassResponse gateResp = leaveAtGate(saved.getId(), resident);
+                gateResp.setOtpOnCreation(otp);
+                return gateResp;
+            }
+        }
+
         // Return plain OTP ONCE for guard to communicate to resident
         VisitorPassResponse response = toResponse(saved);
         response.setOtpOnCreation(otp);
@@ -318,13 +342,50 @@ public class VisitorPassService {
     @Transactional
     public VisitorPassResponse leaveAtGate(Long id, AppUser resident) {
         String actor = "Resident (" + (resident != null ? resident.getFullName() : "User") + ")";
-        return transitionPassStatusAtomically(
+        VisitorPassResponse response = transitionPassStatusAtomically(
                 id,
                 APPROVE_ALLOWED_SOURCES,
                 VisitorPass.PassStatus.LEAVE_AT_GATE,
                 "LEAVE_AT_GATE",
                 actor,
                 "Resident instructed security to hold parcel at gate desk.");
+
+        if (parcelService != null && response.getCommunityId() != null && response.getFlatNumber() != null) {
+            try {
+                var parcel = parcelService.receiveParcelWithOtp(
+                        response.getCommunityId(),
+                        response.getFlatNumber(),
+                        response.getResidentId(),
+                        response.getVisitorName(),
+                        response.getPassCode(),
+                        resident != null ? resident.getId() : null,
+                        response.getVisitorPhoto()
+                );
+                response.setParcelRecordId(parcel.getId());
+                response.setParcelCollectionOtp(parcel.getCollectionOtp());
+                writeAudit(id, response.getVisitorName(), "PARCEL_AT_GATE_CREATED", actor,
+                        "Parcel desk record #" + parcel.getId() + " created with 24h pickup OTP.");
+                if (response.getResidentId() != null) {
+                    notificationService.createNotification(
+                            response.getResidentId(),
+                            NotificationType.VISITOR_CHECK_IN,
+                            NotificationCategory.COMMUNITY,
+                            "Parcel Left at Gate Desk",
+                            response.getVisitorName() + " package held at gate desk. Collect using OTP: "
+                                    + parcel.getCollectionOtp() + " (valid 24h).",
+                            "/visitors",
+                            ReferenceType.VISITOR_PASS,
+                            id,
+                            NotificationPriority.NORMAL,
+                            null,
+                            response.getCommunityId()
+                    );
+                }
+            } catch (Exception ex) {
+                log.warn("Leave-at-Gate parcel custody creation skipped for pass {}: {}", id, ex.getMessage());
+            }
+        }
+        return response;
     }
 
     @Transactional
@@ -337,6 +398,18 @@ public class VisitorPassService {
                 "REJECTED",
                 actor,
                 "Visitor pass REJECTED / CANCELLED.");
+    }
+
+    @Transactional
+    public VisitorPassResponse denyPass(Long id, String performer) {
+        String actor = performer != null ? performer : "System";
+        return transitionPassStatusAtomically(
+                id,
+                REJECT_ALLOWED_SOURCES,
+                VisitorPass.PassStatus.DENIED,
+                "DENIED",
+                actor,
+                "Visitor entry DENIED by resident/security.");
     }
 
     /**
@@ -806,14 +879,35 @@ public class VisitorPassService {
         }
         String cleanFlat = flat.trim();
         String cleanOtp = otp.trim();
+        Long commId = community != null ? community.getId()
+                : (guard != null && guard.getCommunity() != null ? guard.getCommunity().getId() : null);
         String hashed = hashOtp(cleanOtp);
 
         Optional<VisitorPass> optPass = repo.findByOtpHash(hashed);
         if (optPass.isEmpty()) {
+            // Increment failed OTP attempt counters on active delivery passes for this flat
+            if (commId != null) {
+                List<VisitorPass> pendingFlatDeliveries = repo.findByCommunityIdAndStatusOrderByCreatedAtDesc(
+                                commId, VisitorPass.PassStatus.PENDING)
+                        .stream()
+                        .filter(p -> p.getFlatNumber() != null && p.getFlatNumber().equalsIgnoreCase(cleanFlat))
+                        .toList();
+                for (VisitorPass candidate : pendingFlatDeliveries) {
+                    int nextAttempts = (candidate.getOtpAttempts() != null ? candidate.getOtpAttempts() : 0) + 1;
+                    candidate.setOtpAttempts(nextAttempts);
+                    repo.save(candidate);
+                    if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                        throw new IllegalArgumentException("OTP verification locked after 5 failed attempts");
+                    }
+                }
+            }
             throw new IllegalArgumentException("Invalid OTP for delivery verification");
         }
 
         VisitorPass pass = optPass.get();
+        if (pass.getOtpAttempts() != null && pass.getOtpAttempts() >= MAX_OTP_ATTEMPTS) {
+            throw new IllegalArgumentException("OTP verification locked after 5 failed attempts");
+        }
         if (pass.getOtpExpiresAt() != null && LocalDateTime.now().isAfter(pass.getOtpExpiresAt())) {
             pass.setStatus(VisitorPass.PassStatus.EXPIRED);
             repo.save(pass);

@@ -213,7 +213,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
     }
 
-    @PutMapping({"/{id}/reject", "/{id}/deny"})
+    @PutMapping("/{id}/reject")
     @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,
@@ -225,6 +225,20 @@ public class VisitorPassController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));
+    }
+
+    @PutMapping("/{id}/deny")
+    @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
+    public ResponseEntity<VisitorPassResponse> deny(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
+        if (!isGuard && !visitorPassService.isResidentAuthorizedForPass(user, pass)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(visitorPassService.denyPass(id, user.getFullName()));
     }
 
     @GetMapping("/my-visitors")

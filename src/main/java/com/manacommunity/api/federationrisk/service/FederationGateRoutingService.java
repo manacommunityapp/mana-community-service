@@ -107,6 +107,19 @@ public class FederationGateRoutingService {
         }
     }
 
+    /**
+     * Enforces strict sub-society data isolation within a mega-township federation:
+     * Sub-Society A's Management Committee may never read Sub-Society B's financial
+     * ledgers or resident directory even though both share outer federation gates.
+     */
+    public void assertSubSocietyDataIsolation(Long callerSocietyId, Long targetSocietyId, String resourceType) {
+        if (callerSocietyId == null || targetSocietyId == null || !callerSocietyId.equals(targetSocietyId)) {
+            throw new CrossSocietyIsolationException(String.format(
+                    "Cross-society %s access denied: caller society %s cannot read society %s data",
+                    resourceType, callerSocietyId, targetSocietyId));
+        }
+    }
+
     public static class CrossSocietyIsolationException extends RuntimeException {
         public CrossSocietyIsolationException(String message) {
             super(message);

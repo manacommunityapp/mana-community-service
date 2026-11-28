@@ -145,4 +145,46 @@ class DirectoryPrivacyEngineTest {
         assertTrue(result.isPhoneMasked());
         assertTrue(result.isFlatMasked());
     }
+
+    @Test
+    @DisplayName("Management Committee scope hides restricted fields from neighbors and exposes them to MC members")
+    void testManagementCommitteeOnlyVisibility() {
+        privacyEngine.registerPrivacyMatrix(UserPrivacyMatrix.builder()
+                .userId(203L)
+                .communityId(COMMUNITY_ID)
+                .phoneScope(VisibilityScope.MANAGEMENT_COMMITTEE_ONLY)
+                .vehicleScope(VisibilityScope.MANAGEMENT_COMMITTEE_ONLY)
+                .flatScope(VisibilityScope.EVERYONE_IN_SOCIETY)
+                .emailScope(VisibilityScope.HIDDEN_COMPLETELY)
+                .build());
+
+        ResidentDirectoryEntry target = ResidentDirectoryEntry.builder()
+                .userId(203L)
+                .communityId(COMMUNITY_ID)
+                .residentName("Vikram Rao")
+                .phoneNumber("+919800112233")
+                .vehicleNumber("TS09EF4321")
+                .flatNumber("Tower C - 901")
+                .email("vikram@example.com")
+                .build();
+
+        ViewerContext neighborOwner = ViewerContext.builder()
+                .viewerUserId(510L).communityId(COMMUNITY_ID)
+                .isVerifiedOwner(true).isManagementCommittee(false).build();
+        SanitizedDirectoryEntry neighborView = privacyEngine.sanitizeRecord(neighborOwner, target);
+        assertTrue(neighborView.isPhoneMasked());
+        assertTrue(neighborView.isVehicleMasked());
+        assertNotEquals("+919800112233", neighborView.getPhoneNumber());
+        assertNotEquals("TS09EF4321", neighborView.getVehicleNumber());
+
+        ViewerContext mcMember = ViewerContext.builder()
+                .viewerUserId(511L).communityId(COMMUNITY_ID)
+                .isVerifiedOwner(true).isManagementCommittee(true).build();
+        SanitizedDirectoryEntry mcView = privacyEngine.sanitizeRecord(mcMember, target);
+        assertFalse(mcView.isPhoneMasked());
+        assertFalse(mcView.isVehicleMasked());
+        assertEquals("+919800112233", mcView.getPhoneNumber());
+        assertEquals("TS09EF4321", mcView.getVehicleNumber());
+        assertNull(mcView.getEmail());
+    }
 }

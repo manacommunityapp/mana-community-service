@@ -15,4 +15,10 @@ public interface DailyHelpAttendanceService {
             Long communityId, Long flatId, LocalDate startDate, LocalDate endDate);
 
     CrossSocietyStaffProfileDto getPublicCrossSocietyProfile(String staffUuid);
+
+    StaffGateScanResultDto recordGateEntry(StaffGateScanRequest request);
+
+    StaffGateScanResultDto recordGateExit(StaffGateScanRequest request);
+
+    CrossSocietyStaffProfileDto registerMultiSocietyWorker(MultiSocietyAffiliationRequest request);
 }

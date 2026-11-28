@@ -104,4 +104,13 @@ public class SmartMeterServiceTest {
         assertEquals("2026-10", bill.getBillingMonth());
         assertEquals(MeterBillingStatus.PENDING_SYNC, bill.getBillingStatus());
     }
+
+    @Test
+    @DisplayName("Calculates Diesel Generator backup tariff separately from Grid slab")
+    void testDieselGeneratorTariffCalculation() {
+        assertEquals(new BigDecimal("220.00"),
+                slabEngine.calculateSlabAmount(MeterType.DIESEL_GENERATOR, new BigDecimal("10")));
+        assertEquals(new BigDecimal("60.00"),
+                slabEngine.calculateSlabAmount(MeterType.ELECTRICITY_METER, new BigDecimal("10")));
+    }
 }

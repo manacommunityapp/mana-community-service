@@ -31,7 +31,7 @@ public class MegaTownshipTestController {
     public ResponseEntity<MegaTownshipDashboard> getDashboard() {
         var g = gateRepo.findAll(); var a = amenityRepo.findAll(); var b = billingRepo.findAll();
         int total = g.size() + a.size() + b.size();
-        if (total == 0) return ResponseEntity.ok(seedDemo());
+        if (total == 0) return seedDemo();
         long pass = g.stream().filter(t -> t.getTestResult() == FederatedGateTest.TestResult.PASS).count()
                 + a.stream().filter(t -> t.getTestResult() == SharedAmenityTest.TestResult.PASS).count()
                 + b.stream().filter(t -> t.getTestResult() == ConsolidatedBillingTest.TestResult.PASS).count();

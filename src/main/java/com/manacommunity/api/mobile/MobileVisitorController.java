@@ -113,6 +113,19 @@ public class MobileVisitorController {
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));
     }
 
+    /** PUT /api/visitors/mobile/{id}/deny — resident denies a pending pass */
+    @PutMapping("/{id}/deny")
+    public ResponseEntity<VisitorPassResponse> deny(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(visitorPassService.denyPass(id, user.getFullName()));
+    }
+
     /** PUT /api/visitors/mobile/{id}/check-in — resident marks visitor checked in */
     @PutMapping("/{id}/check-in")
     public ResponseEntity<VisitorPassResponse> checkIn(

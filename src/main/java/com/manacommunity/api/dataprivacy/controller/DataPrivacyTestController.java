@@ -31,7 +31,7 @@ public class DataPrivacyTestController {
     public ResponseEntity<DataPrivacyDashboard> getDashboard() {
         var c = consentRepo.findAll(); var v = cctvRepo.findAll(); var s = securityRepo.findAll();
         int total = c.size() + v.size() + s.size();
-        if (total == 0) return ResponseEntity.ok(seedDemo());
+        if (total == 0) return seedDemo();
         long pass = c.stream().filter(t -> t.getTestResult() == DpdpConsentTest.TestResult.PASS).count()
                 + v.stream().filter(t -> t.getTestResult() == CctvForensicsTest.TestResult.PASS).count()
                 + s.stream().filter(t -> t.getTestResult() == SecurityAuditTest.TestResult.PASS).count();

@@ -31,7 +31,7 @@ public class GuardPayrollTestController {
     public ResponseEntity<GuardPayrollDashboard> getDashboard() {
         var s = shiftRepo.findAll(); var p = payrollRepo.findAll(); var r = patrolRepo.findAll();
         int total = s.size() + p.size() + r.size();
-        if (total == 0) return ResponseEntity.ok(seedDemo());
+        if (total == 0) return seedDemo();
         long pass = s.stream().filter(t -> t.getTestResult() == ShiftHandoverTest.TestResult.PASS).count()
                 + p.stream().filter(t -> t.getTestResult() == AttendancePayrollTest.TestResult.PASS).count()
                 + r.stream().filter(t -> t.getTestResult() == PatrolComplianceTest.TestResult.PASS).count();

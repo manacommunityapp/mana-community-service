@@ -31,7 +31,7 @@ public class ObservabilityTestController {
     public ResponseEntity<ObservabilityDashboard> getDashboard() {
         var l = latencyRepo.findAll(); var r = releaseRepo.findAll(); var a = alertRepo.findAll();
         int total = l.size() + r.size() + a.size();
-        if (total == 0) return ResponseEntity.ok(seedDemo());
+        if (total == 0) return seedDemo();
         long pass = l.stream().filter(t -> t.getTestResult() == ApiLatencyTest.TestResult.PASS).count()
                 + r.stream().filter(t -> t.getTestResult() == ReleaseTelemetryTest.TestResult.PASS).count()
                 + a.stream().filter(t -> t.getTestResult() == AlertEscalationTest.TestResult.PASS).count();

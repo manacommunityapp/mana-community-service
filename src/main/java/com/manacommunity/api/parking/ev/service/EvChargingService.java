@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -153,6 +154,110 @@ public class EvChargingService {
                 session.getId(), totalKwh, totalCost, txn != null ? txn.getId() : null);
 
         return EvChargingSessionResponse.from(session);
+    }
+
+    /**
+     * Reconciles a mid-charge utility power-cut interruption by settling partial kWh consumed
+     * up to the last OCPP meter reading, debiting the wallet once, and placing the charger in FAULT
+     * until power/telemetry restores.
+     */
+    @Transactional
+    public EvChargingSessionResponse handlePowerCutInterruption(Long sessionId, Double lastMeterReadingKwh) {
+        EvChargingSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("EvChargingSession", sessionId));
+        if (session.getStatus() != EvChargingSession.SessionStatus.ACTIVE) {
+            throw new InvalidInputException("Cannot settle power cut for non-active session " + sessionId);
+        }
+
+        LocalDateTime endedAt = LocalDateTime.now();
+        double endMeter = lastMeterReadingKwh != null ? lastMeterReadingKwh : session.getStartMeterKwh();
+        double partialKwh = billingEngine.calculateKwh(session.getStartMeterKwh(), endMeter);
+        EvChargingRate rateConfig = rateRepository.findFirstByCommunityIdAndActiveTrue(session.getCommunity().getId())
+                .orElse(null);
+
+        // Charge proportionally for delivered energy; avoid penalizing minimum fee if zero kWh was delivered during outage
+        BigDecimal settledCost = partialKwh <= 0.0
+                ? BigDecimal.ZERO
+                : billingEngine.calculateCost(partialKwh, session.getStartedAt(), endedAt, rateConfig);
+
+        Long txnId = null;
+        if (settledCost.compareTo(BigDecimal.ZERO) > 0) {
+            CfbosWalletTransaction txn = walletEngine.debitWallet(
+                    session.getResident().getId(),
+                    settledCost,
+                    WalletTransactionType.EV_CHARGING,
+                    "EV_POWER_CUT_SETTLEMENT",
+                    session.getId(),
+                    "EV partial charge before POWER_CUT (" + partialKwh + " kWh)"
+            );
+            txnId = txn != null ? txn.getId() : null;
+        }
+
+        session.setEndedAt(endedAt);
+        session.setEndMeterKwh(endMeter);
+        session.setTotalKwh(partialKwh);
+        session.setTotalCost(settledCost);
+        session.setStatus(EvChargingSession.SessionStatus.COMPLETED);
+        session.setStopReason("POWER_CUT");
+        session.setCfbosWalletTransactionId(txnId);
+        session = sessionRepository.save(session);
+
+        EvCharger charger = session.getCharger();
+        charger.setStatus(EvCharger.ChargerStatus.FAULT);
+        charger.setCurrentPowerKw(BigDecimal.ZERO);
+        charger.setLatestMeterKwh(endMeter);
+        charger.setLastFaultCode("POWER_CUT");
+        chargerRepository.save(charger);
+
+        return EvChargingSessionResponse.from(session);
+    }
+
+    public record OverstayPenaltyResult(
+            Long sessionId,
+            boolean penaltyTriggered,
+            long chargeableIdleMinutes,
+            BigDecimal penaltyAmount,
+            Long walletTxnId
+    ) {}
+
+    /**
+     * Triggers an automatic overstay penalty when a vehicle stays plugged in past
+     * 100% State-of-Charge beyond the grace window.
+     */
+    @Transactional
+    public OverstayPenaltyResult evaluateIdleOverstayPenalty(
+            Long sessionId,
+            BigDecimal stateOfChargePercent,
+            long idleMinutesPastGrace,
+            BigDecimal penaltyPerHour
+    ) {
+        EvChargingSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("EvChargingSession", sessionId));
+
+        if (stateOfChargePercent == null || stateOfChargePercent.compareTo(new BigDecimal("100")) < 0
+                || idleMinutesPastGrace <= 0) {
+            return new OverstayPenaltyResult(sessionId, false, 0L, BigDecimal.ZERO, null);
+        }
+
+        BigDecimal hourlyRate = penaltyPerHour != null ? penaltyPerHour : new BigDecimal("60.00");
+        BigDecimal penalty = hourlyRate.multiply(BigDecimal.valueOf(idleMinutesPastGrace))
+                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+
+        CfbosWalletTransaction txn = walletEngine.debitWallet(
+                session.getResident().getId(),
+                penalty,
+                WalletTransactionType.EV_CHARGING,
+                "EV_OVERSTAY_PENALTY",
+                session.getId(),
+                "EV 100% SoC idle overstay penalty (" + idleMinutesPastGrace + " min)"
+        );
+
+        EvCharger charger = session.getCharger();
+        charger.setStatus(EvCharger.ChargerStatus.OCCUPIED_IDLE);
+        chargerRepository.save(charger);
+
+        return new OverstayPenaltyResult(
+                sessionId, true, idleMinutesPastGrace, penalty, txn != null ? txn.getId() : null);
     }
 
     // ── Telemetry Ingestion ───────────────────────────────────────────────────
