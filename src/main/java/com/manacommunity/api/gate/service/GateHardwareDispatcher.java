@@ -2,7 +2,9 @@ package com.manacommunity.api.gate.service;
 
 import com.manacommunity.api.gate.adapter.*;
 import com.manacommunity.api.gate.model.GateEvent;
+import com.manacommunity.api.gate.model.SecurityAlert;
 import com.manacommunity.api.gate.repository.GateEventRepository;
+import com.manacommunity.api.gate.repository.SecurityAlertRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ public class GateHardwareDispatcher {
 
     private final List<GateHardwareAdapter> adapters;
     private final GateEventRepository gateEventRepository;
+    private final SecurityAlertRepository securityAlertRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     private final Map<HardwareType, GateHardwareAdapter> adapterMap = new EnumMap<>(HardwareType.class);
@@ -64,6 +67,10 @@ public class GateHardwareDispatcher {
         entity = gateEventRepository.save(entity);
 
         broadcastEvent(event.communityId(), entity);
+
+        if (result.barrierAction() == BarrierAction.HOLD) {
+            raiseAlert(event.communityId(), entity);
+        }
 
         return entity;
     }
@@ -105,5 +112,32 @@ public class GateHardwareDispatcher {
         } catch (Exception e) {
             log.warn("Failed to broadcast gate event {} via STOMP: {}", event.getId(), e.getMessage());
         }
+    }
+
+    private void raiseAlert(Long communityId, GateEvent event) {
+        SecurityAlert alert = SecurityAlert.builder()
+                .communityId(communityId)
+                .gateId(event.getGateId())
+                .gateEventId(event.getId())
+                .hardwareType(event.getHardwareType() != null ? event.getHardwareType().name() : null)
+                .identifierType(event.getIdentifierType())
+                .identifierValue(event.getIdentifierValue())
+                .alertStatus(SecurityAlert.AlertStatus.OPEN)
+                .build();
+
+        alert = securityAlertRepository.save(alert);
+
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/community/" + communityId + "/gate/alerts",
+                    alert
+            );
+        } catch (Exception e) {
+            log.warn("Failed to broadcast security alert {} via STOMP: {}", alert.getId(), e.getMessage());
+        }
+
+        log.info("SecurityAlert #{} raised for HOLD at gate {} community {} ({}:{})",
+                alert.getId(), event.getGateId(), communityId,
+                event.getIdentifierType(), event.getIdentifierValue());
     }
 }
